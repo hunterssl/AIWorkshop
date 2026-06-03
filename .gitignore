@@ -1,0 +1,12 @@
+# 构建产物
+studio/dist/
+canvas/dist/
+
+# 依赖
+node_modules/
+studio/comfy/node_modules/
+canvas/node_modules/
+
+# 系统文件
+.DS_Store
+Thumbs.db

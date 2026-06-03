@@ -1,0 +1,20 @@
+[Unit]
+Description=ComfyUI Lingying Platform
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_LINUX_USER
+WorkingDirectory=/path/to/ComfyUI-master
+Environment=PYTHONUNBUFFERED=1
+
+# 只监听本机，由 Nginx 对外暴露；切勿 0.0.0.0 裸奔
+ExecStart=/path/to/ComfyUI-master/venv/bin/python main.py \
+  --listen 127.0.0.1 \
+  --port 8188
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
