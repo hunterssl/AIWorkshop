@@ -1,0 +1,282 @@
+{
+  "id": "0528_mpphtu5b",
+  "name": "图生视频0528",
+  "description": "bb",
+  "cover_url": "/rh/portal/covers/5cce03e153de411a81d1fd7d78fd651b.png",
+  "version": "1.0.0",
+  "tags": [],
+  "updated_at": "2026-05-28T12:53:19.929Z",
+  "workflow_json": {
+    "id": "6fcb8b56-8232-4290-9b42-676373092edf",
+    "revision": 0,
+    "last_node_id": 30,
+    "last_link_id": 30,
+    "nodes": [
+      {
+        "id": 22,
+        "type": "LoadImage",
+        "pos": [
+          -82.59616682534408,
+          68.35086397589527
+        ],
+        "size": [
+          270,
+          340.328125
+        ],
+        "flags": {},
+        "order": 0,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "IMAGE",
+            "type": "IMAGE",
+            "links": [
+              29
+            ]
+          },
+          {
+            "name": "MASK",
+            "type": "MASK",
+            "links": null
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "LoadImage"
+        },
+        "widgets_values": [
+          "ComfyUI_00003_.png",
+          "image"
+        ]
+      },
+      {
+        "id": 24,
+        "type": "SaveImage",
+        "pos": [
+          764.4522340535622,
+          56.838412804020265
+        ],
+        "size": [
+          270,
+          84.328125
+        ],
+        "flags": {},
+        "order": 3,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "images",
+            "type": "IMAGE",
+            "link": 30
+          }
+        ],
+        "outputs": [],
+        "properties": {},
+        "widgets_values": [
+          "ComfyUI"
+        ]
+      },
+      {
+        "id": 29,
+        "type": "ImageScaleToTotalPixels",
+        "pos": [
+          310.9970948934059,
+          68.96203951300464
+        ],
+        "size": [
+          270,
+          115.03125
+        ],
+        "flags": {},
+        "order": 2,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "image",
+            "type": "IMAGE",
+            "link": 29
+          }
+        ],
+        "outputs": [
+          {
+            "name": "IMAGE",
+            "type": "IMAGE",
+            "links": [
+              30
+            ]
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "ImageScaleToTotalPixels"
+        },
+        "widgets_values": [
+          "nearest-exact",
+          1,
+          1
+        ]
+      },
+      {
+        "id": 30,
+        "type": "CLIPTextEncode",
+        "pos": [
+          -206.20743391518783,
+          -227.22431607781567
+        ],
+        "size": [
+          399.984375,
+          199.984375
+        ],
+        "flags": {},
+        "order": 1,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "clip",
+            "type": "CLIP",
+            "link": null
+          }
+        ],
+        "outputs": [
+          {
+            "name": "CONDITIONING",
+            "type": "CONDITIONING",
+            "links": null
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "CLIPTextEncode"
+        },
+        "widgets_values": [
+          "输入文本"
+        ]
+      }
+    ],
+    "links": [
+      [
+        29,
+        22,
+        0,
+        29,
+        0,
+        "IMAGE"
+      ],
+      [
+        30,
+        29,
+        0,
+        24,
+        0,
+        "IMAGE"
+      ]
+    ],
+    "groups": [],
+    "config": {},
+    "extra": {
+      "frontendVersion": "1.42.15",
+      "workflowRendererVersion": "LG",
+      "VHS_latentpreview": false,
+      "VHS_latentpreviewrate": 0,
+      "VHS_MetadataImage": true,
+      "VHS_KeepIntermediate": true,
+      "ds": {
+        "scale": 0.620921323059155,
+        "offset": [
+          1216.7471540961867,
+          603.6829016222993
+        ]
+      }
+    },
+    "version": 0.4
+  },
+  "prompt_template": {
+    "22": {
+      "inputs": {
+        "image": "ComfyUI_00003_.png"
+      },
+      "class_type": "LoadImage",
+      "_meta": {
+        "title": "加载图像"
+      }
+    },
+    "24": {
+      "inputs": {
+        "filename_prefix": "ComfyUI",
+        "images": [
+          "29",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "保存图像"
+      }
+    },
+    "29": {
+      "inputs": {
+        "upscale_method": "nearest-exact",
+        "megapixels": 1.0,
+        "resolution_steps": 1,
+        "image": [
+          "22",
+          0
+        ]
+      },
+      "class_type": "ImageScaleToTotalPixels",
+      "_meta": {
+        "title": "缩放图像（像素）"
+      }
+    },
+    "30": {
+      "inputs": {
+        "text": "输入文本"
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP文本编码"
+      }
+    }
+  },
+  "params": [
+    {
+      "key": "image_22",
+      "label": "图像",
+      "type": "image",
+      "default": "ComfyUI_00003_.png",
+      "bindings": [
+        {
+          "node_id": "22",
+          "input_name": "image"
+        }
+      ]
+    },
+    {
+      "key": "prompt",
+      "label": "文本",
+      "type": "text",
+      "default": "输入文本",
+      "bindings": [
+        {
+          "node_id": "30",
+          "input_name": "text"
+        }
+      ]
+    }
+  ],
+  "publish_meta": {
+    "source": "main_ui",
+    "node_count": 4,
+    "selected_param_count": 2
+  },
+  "validation_snapshot": {
+    "ok": true,
+    "output_count": 1,
+    "outputs": [
+      "24"
+    ],
+    "node_count": 4,
+    "node_errors": {}
+  },
+  "studio_modes": [
+    "i2v"
+  ]
+}

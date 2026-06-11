@@ -1,0 +1,38 @@
+/** 内置模型目录 — 与 canvas/src/config/models.js 保持同步（仅 label/key） */
+window.RhModelsCatalog = {
+  CHAT_MODELS: [
+    { label: "Deepseek-v4-Flash", key: "deepseek-v4-flash" },
+    { label: "Deepseek-v4-Pro", key: "deepseek-v4-pro" },
+    { label: "GPT-4o Mini", key: "gpt-4o-mini" },
+    { label: "GPT-4o", key: "gpt-4o" },
+    { label: "GPT-5.2", key: "gpt-5.2" },
+    { label: "DeepSeek Chat", key: "deepseek-chat" },
+    { label: "豆包 Seed Flash", key: "doubao-seed-1-6-flash-250615" },
+    { label: "Gemini 3 Pro", key: "gemini-3-pro" },
+  ],
+  IMAGE_MODELS: [
+    { label: "qwen-image-2.0-pro-test", key: "qwen-image-2.0-pro-test" },
+    { label: "qwen-image-2.0-pro", key: "qwen-image-2.0-pro" },
+    { label: "Nano Banana 2", key: "nano-banana-2" },
+    { label: "Nano Banana Pro", key: "nano-banana-pro" },
+    { label: "豆包 Seedream 4.5", key: "doubao-seedream-4-5-251128" },
+    { label: "Nano Banana", key: "nano-banana" },
+    { label: "wan2.7 image", key: "wan2.7-image" },
+    { label: "grok imagine", key: "grok-imagine-1.0-edit-apimart" },
+    { label: "z-image-turbo", key: "z-image-turbo" },
+    { label: "doubao-seedance-4-0", key: "doubao-seedance-4-0" },
+    { label: "doubao-seedance-4-0", key: "doubao-seedance-4-0" },
+  ],
+  VIDEO_MODELS: [
+    { label: "Seedance 1.5 Pro (图文视频)", key: "doubao-seedance-1-5-pro-251215" },
+    { label: "Seedance 1.0 Lite (文生视频)", key: "doubao-seedance-1-0-lite-t2v-250428" },
+    { label: "Seedance 1.0 Lite (图生视频)", key: "doubao-seedance-1-0-lite-i2v-250428" },
+    { label: "Seedance 1.0 Pro (图文视频)", key: "doubao-seedance-1-0-pro-250528" },
+    { label: "Seedance 1.0 Pro Fast (图文视频)", key: "doubao-seedance-1-0-pro-fast-251015" },
+    { label: "可灵 Kling v2.5-turbo", key: "kling-v2-1" },
+    { label: "runway/gen4-turbo", key: "runway/gen4-turbo" },
+    { label: "可灵视频 O1", key: "kling-video-o1" },
+    { label: "viduq2-pro_720p", key: "viduq2-pro_720p" },
+    { label: "Sora 2", key: "sora-2" },
+  ],
+};

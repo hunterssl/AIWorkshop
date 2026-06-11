@@ -1,0 +1,17 @@
+{
+  "id": "ff8dee5d36d94e85b22253989f1c68dc",
+  "title": "测试项目",
+  "icon": "🧩",
+  "kind": "classic",
+  "nodes": [],
+  "connections": [],
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "scale": 1
+  },
+  "created_at": 1779444193746,
+  "updated_at": 1779444193746,
+  "deleted": false,
+  "deleted_at": 0
+}

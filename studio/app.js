@@ -15,8 +15,8 @@
   const promptEl = $("prompt");
   const fileInput = $("fileInput");
   const btnSend = $("btnSend");
-  const announcement = $("announcement");
-  const announcementClose = $("announcementClose");
+  // const announcement = $("announcement");
+  // const announcementClose = $("announcementClose");
   const paramsPopAnchor = $("paramsPopAnchor");
   const btnParamsTrigger = $("btnParamsTrigger");
   const composerParamsBody = $("composerParamsBody");
@@ -43,10 +43,20 @@
   const btnGoStudioHome = $("btnGoStudioHome");
   const btnHomeLogin = $("btnHomeLogin");
   const homeLoginLabel = $("homeLoginLabel");
+  const homeAuthMenu = $("homeAuthMenu");
+  const homeAuthDropdown = $("homeAuthDropdown");
+  const btnHomeLogout = $("btnHomeLogout");
+  const btnHomeApiSettings = $("btnHomeApiSettings");
+  const btnChatLogin = $("btnChatLogin");
+  const chatLoginLabel = $("chatLoginLabel");
+  const chatAuthMenu = $("chatAuthMenu");
+  const chatAuthDropdown = $("chatAuthDropdown");
+  const btnChatLogout = $("btnChatLogout");
+  const btnChatApiSettings = $("btnChatApiSettings");
   const studioLoginModal = $("studioLoginModal");
   const studioLoginBackdrop = $("studioLoginBackdrop");
   const btnCloseStudioLogin = $("btnCloseStudioLogin");
-  const studioLoginUserSelect = $("studioLoginUserSelect");
+  const studioLoginUsername = $("studioLoginUsername");
   const btnConfirmStudioLogin = $("btnConfirmStudioLogin");
   const studioLoginNewName = $("studioLoginNewName");
   const studioLoginPassword = $("studioLoginPassword");
@@ -58,9 +68,11 @@
   const CHAT_HISTORY_STORAGE_BASE = "rh_studio_chat_history_v1";
   const CHAT_CONVERSATION_DEFAULT_TITLE = "新对话";
   const QUEUE_LABELS_STORAGE_BASE = "rh_studio_queue_labels_v1";
+  const QUEUE_ENTRIES_STORAGE_BASE = "rh_studio_queue_entries_v1";
   const OWNED_PROMPTS_STORAGE_BASE = "rh_studio_owned_prompts_v1";
   const STUDIO_USER_STORAGE_KEY = "rh_studio_user_id";
   const STUDIO_AUTH_SESSION_KEY = "rh_studio_authed_user_id";
+  const STUDIO_SESSION_TOKEN_KEY = "rh_studio_session_token";
   const STUDIO_MIN_PASSWORD_LENGTH = 6;
   const QUEUE_COLLAPSED_STORAGE_KEY = "rh_studio_queue_collapsed_v1";
   const MAX_CHAT_HISTORY_ITEMS = 600;
@@ -117,6 +129,10 @@
     return `${OWNED_PROMPTS_STORAGE_BASE}__${studioUserId}`;
   }
 
+  function queueEntriesStorageKey() {
+    return `${QUEUE_ENTRIES_STORAGE_BASE}__${studioUserId}`;
+  }
+
   function getStudioClientId() {
     return `rh-studio-${studioUserId}`;
   }
@@ -125,7 +141,56 @@
     const headers = new Headers(options.headers || {});
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
     if (studioUserId) headers.set("comfy-user", studioUserId);
+    try {
+      const sessionToken = sessionStorage.getItem(STUDIO_SESSION_TOKEN_KEY) || "";
+      if (sessionToken) headers.set("rh-studio-session", sessionToken);
+    } catch {
+      // Ignore storage failures.
+    }
     return { ...options, headers };
+  }
+
+  function setStudioSessionToken(token) {
+    try {
+      const value = String(token || "").trim();
+      if (value) sessionStorage.setItem(STUDIO_SESSION_TOKEN_KEY, value);
+      else sessionStorage.removeItem(STUDIO_SESSION_TOKEN_KEY);
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  function getStudioSessionToken() {
+    try {
+      return sessionStorage.getItem(STUDIO_SESSION_TOKEN_KEY) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function handleStudioSessionExpired(message) {
+    clearStudioUserAuth();
+    updateStudioUserUi();
+    if (studioMultiUserEnabled && !isStudioLoginModalOpen()) {
+      openStudioLoginModal();
+      window.$message?.warning?.(message || "登录已失效，请重新登录");
+    }
+  }
+
+  async function validateStudioSessionOnInit() {
+    if (!studioMultiUserEnabled) return true;
+    if (!getStudioSessionToken() || !isStudioUserAuthed()) {
+      clearStudioUserAuth();
+      updateStudioUserUi();
+      return false;
+    }
+    try {
+      await requestJson("/rh/api/studio/auth/me", { skipAuthRecovery: true });
+      return true;
+    } catch {
+      handleStudioSessionExpired("登录已失效，请重新登录后再生成");
+      return false;
+    }
   }
 
   function loadOwnedPromptIds() {
@@ -155,15 +220,74 @@
     persistOwnedPromptIds();
   }
 
+  function unregisterOwnedPrompt(promptId) {
+    const id = String(promptId || "").trim();
+    if (!id) return;
+    ownedPromptIds.delete(id);
+    persistOwnedPromptIds();
+  }
+
+  function normalizeStoredQueueEntry(item) {
+    if (!item || typeof item !== "object") return null;
+    const promptId = String(item.prompt_id || "").trim();
+    if (!promptId) return null;
+    const now = Date.now();
+    return {
+      prompt_id: promptId,
+      status: normalizeQueueStatus(item.status || "unknown"),
+      title: String(item.title || "ComfyUI 任务"),
+      mode: String(item.mode || "任务"),
+      created_at: Number(item.created_at) || now,
+      updated_at: Number(item.updated_at) || now,
+      number: item.number ?? "",
+      media_count: Number(item.media_count) || 0,
+      media_preview: firstMediaPreview(item.media_preview),
+      error: item.error ? String(item.error) : "",
+      missing_polls: Number(item.missing_polls) || 0,
+      execution_start_time: Number(item.execution_start_time) || undefined,
+      execution_end_time: Number(item.execution_end_time) || undefined,
+    };
+  }
+
+  function loadQueueEntries() {
+    try {
+      const raw = localStorage.getItem(queueEntriesStorageKey());
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      const entries = parsed
+        .map((item) => normalizeStoredQueueEntry(item))
+        .filter(Boolean)
+        .slice(-MAX_QUEUE_ITEMS);
+      for (const entry of entries) {
+        if (entry.prompt_id) ownedPromptIds.add(entry.prompt_id);
+      }
+      return entries;
+    } catch {
+      return [];
+    }
+  }
+
+  function persistQueueEntries() {
+    try {
+      localStorage.setItem(queueEntriesStorageKey(), JSON.stringify(queueEntries.slice(-MAX_QUEUE_ITEMS)));
+    } catch {
+      // Ignore storage write failures.
+    }
+  }
+
   function isOwnedPromptId(promptId) {
     const id = String(promptId || "").trim();
     return Boolean(id && ownedPromptIds.has(id));
   }
 
-  async function requestJson(url, options) {
+  async function requestJson(url, options = {}) {
     const response = await fetch(url, mergeStudioRequestOptions(options));
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401 && !options.skipAuthRecovery && studioMultiUserEnabled) {
+        handleStudioSessionExpired(data.error || "请先登录后再运行任务");
+      }
       throw new Error(data.error || `HTTP ${response.status}`);
     }
     return data;
@@ -227,8 +351,10 @@
     if (!queuePanel || !btnQueueToggle) return;
     const isCollapsed = Boolean(collapsed);
     queuePanel.classList.toggle("is-collapsed", isCollapsed);
-    btnQueueToggle.textContent = isCollapsed ? "任务队列" : "收起";
+    btnQueueToggle.classList.toggle("is-collapsed", isCollapsed);
     btnQueueToggle.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+    btnQueueToggle.setAttribute("aria-label", isCollapsed ? "展开任务队列" : "收起任务队列");
+    btnQueueToggle.setAttribute("title", isCollapsed ? "展开" : "收起");
     if (persist) {
       try {
         localStorage.setItem(QUEUE_COLLAPSED_STORAGE_KEY, isCollapsed ? "1" : "0");
@@ -731,9 +857,24 @@
 
   function isStudioUserAuthed() {
     try {
-      return sessionStorage.getItem(STUDIO_AUTH_SESSION_KEY) === studioUserId && Boolean(studioUserId);
+      const id = studioUserId || "";
+      const token = getStudioSessionToken();
+      if (!studioMultiUserEnabled) return Boolean(id);
+      return Boolean(
+        token &&
+        id &&
+        sessionStorage.getItem(STUDIO_AUTH_SESSION_KEY) === id,
+      );
     } catch {
       return false;
+    }
+  }
+
+  function syncComfyUserIdentity(userId, displayName) {
+    try {
+      window.RhStudioAuth?.syncComfyUser?.(userId, displayName);
+    } catch {
+      // Ignore sync failures.
     }
   }
 
@@ -748,6 +889,7 @@
   function clearStudioUserAuth() {
     try {
       sessionStorage.removeItem(STUDIO_AUTH_SESSION_KEY);
+      sessionStorage.removeItem(STUDIO_SESSION_TOKEN_KEY);
     } catch {
       // Ignore storage failures.
     }
@@ -772,53 +914,130 @@
     return studioUsersMap[studioUserId] || studioUserId || "default";
   }
 
-  function fillUserSelectElement(selectEl, usersMap) {
-    if (!selectEl) return;
-    selectEl.innerHTML = "";
-    const entries = Object.entries(usersMap || {});
-    if (!entries.length) {
-      const opt = document.createElement("option");
-      opt.value = "default";
-      opt.textContent = "default";
-      selectEl.appendChild(opt);
-      return;
+  function resolveStudioUserId(usernameOrId) {
+    const text = String(usernameOrId || "").trim();
+    if (!text) return "";
+    if (studioUsersMap[text]) return text;
+    const lower = text.toLowerCase();
+    for (const [userId, displayName] of Object.entries(studioUsersMap)) {
+      const name = String(displayName || "").trim();
+      if (name === text || name.toLowerCase() === lower) return userId;
+      if (String(userId) === text) return userId;
     }
-    entries.sort((a, b) => String(a[1]).localeCompare(String(b[1]), "zh-CN"));
-    for (const [userId, displayName] of entries) {
-      const opt = document.createElement("option");
-      opt.value = userId;
-      opt.textContent = displayName || userId;
-      opt.selected = userId === studioUserId;
-      selectEl.appendChild(opt);
-    }
+    return "";
   }
 
-  function renderStudioUserSelect(usersMap) {
-    fillUserSelectElement(studioLoginUserSelect, usersMap);
+  function syncAuthBadgeUi({ labelEl, btnEl, dropdownEl, logoutBtnEl }) {
+    if (!labelEl || !btnEl) return;
+    const authed = isStudioUserAuthed();
+    const menuAvailable = !studioMultiUserEnabled || authed;
+    const name = getStudioUserDisplayName();
+    if (!studioMultiUserEnabled) labelEl.textContent = "默认用户";
+    else if (authed) labelEl.textContent = name;
+    else labelEl.textContent = "登录";
+    btnEl.classList.toggle("is-logged-in", authed || !studioMultiUserEnabled);
+    btnEl.setAttribute("aria-haspopup", menuAvailable ? "menu" : "dialog");
+    btnEl.setAttribute("aria-controls", menuAvailable ? (dropdownEl?.id || "") : "studioLoginModal");
+    if (!authed) btnEl.setAttribute("aria-expanded", "false");
+    if (!menuAvailable && dropdownEl) dropdownEl.classList.add("is-hidden");
+    if (logoutBtnEl) logoutBtnEl.hidden = !studioMultiUserEnabled || !authed;
   }
 
   function updateStudioUserUi() {
-    const authed = isStudioUserAuthed();
-    const name = getStudioUserDisplayName();
-    if (homeLoginLabel) {
-      if (!studioMultiUserEnabled) homeLoginLabel.textContent = "默认用户";
-      else if (authed) homeLoginLabel.textContent = name;
-      else homeLoginLabel.textContent = "登录";
+    syncAuthBadgeUi({ labelEl: homeLoginLabel, btnEl: btnHomeLogin, dropdownEl: homeAuthDropdown, logoutBtnEl: btnHomeLogout });
+    syncAuthBadgeUi({ labelEl: chatLoginLabel, btnEl: btnChatLogin, dropdownEl: chatAuthDropdown, logoutBtnEl: btnChatLogout });
+    if (!isStudioUserAuthed() && studioMultiUserEnabled) {
+      closeHomeAuthDropdown();
+      closeChatAuthDropdown();
     }
-    if (btnHomeLogin) {
-      btnHomeLogin.classList.toggle("is-logged-in", authed);
+  }
+
+  function openStudioApiSettings() {
+    closeHomeAuthDropdown();
+    closeChatAuthDropdown();
+    window.RhApiSettings?.open?.();
+  }
+
+  function openHomeAuthDropdown() {
+    if (!homeAuthDropdown || !btnHomeLogin) return;
+    closeChatAuthDropdown();
+    homeAuthDropdown.classList.remove("is-hidden");
+    btnHomeLogin.setAttribute("aria-expanded", "true");
+  }
+
+  function closeHomeAuthDropdown() {
+    if (!homeAuthDropdown || !btnHomeLogin) return;
+    homeAuthDropdown.classList.add("is-hidden");
+    btnHomeLogin.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleHomeAuthDropdown() {
+    if (!homeAuthDropdown) return;
+    if (homeAuthDropdown.classList.contains("is-hidden")) openHomeAuthDropdown();
+    else closeHomeAuthDropdown();
+  }
+
+  function openChatAuthDropdown() {
+    if (!chatAuthDropdown || !btnChatLogin) return;
+    closeHomeAuthDropdown();
+    chatAuthDropdown.classList.remove("is-hidden");
+    btnChatLogin.setAttribute("aria-expanded", "true");
+  }
+
+  function closeChatAuthDropdown() {
+    if (!chatAuthDropdown || !btnChatLogin) return;
+    chatAuthDropdown.classList.add("is-hidden");
+    btnChatLogin.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleChatAuthDropdown() {
+    if (!chatAuthDropdown) return;
+    if (chatAuthDropdown.classList.contains("is-hidden")) openChatAuthDropdown();
+    else closeChatAuthDropdown();
+  }
+
+  async function logoutStudioUser() {
+    closeHomeAuthDropdown();
+    closeChatAuthDropdown();
+    const token = getStudioSessionToken();
+    try {
+      if (token) {
+        await requestJson("/rh/api/studio/auth/logout", {
+          method: "POST",
+          skipAuthRecovery: true,
+        });
+      }
+    } catch {
+      // 本地仍清除登录态
     }
-    renderStudioUserSelect(studioUsersMap);
+    clearStudioUserAuth();
+    updateStudioUserUi();
+    window.RhStudioAuth?.notifyAuthChange?.();
+    if (typeof window.$message?.success === "function") {
+      window.$message.success("已退出登录");
+    }
+  }
+
+  function isStudioLoginModalOpen() {
+    return Boolean(studioLoginModal && !studioLoginModal.classList.contains("is-hidden"));
   }
 
   function openStudioLoginModal() {
     if (!studioLoginModal) return;
-    renderStudioUserSelect(studioUsersMap);
-    if (studioLoginUserSelect) studioLoginUserSelect.value = studioUserId;
+    if (isStudioLoginModalOpen()) return;
+
     clearStudioLoginFields();
+    if (studioLoginUsername) {
+      studioLoginUsername.value = getStudioUserDisplayName();
+    }
     studioLoginModal.classList.remove("is-hidden");
     document.body.classList.add("studio-login-open");
-    studioLoginPassword?.focus();
+
+    const hasUsername = Boolean(String(studioLoginUsername?.value || "").trim());
+    window.requestAnimationFrame(() => {
+      if (hasUsername) studioLoginPassword?.focus();
+      else studioLoginUsername?.focus();
+    });
   }
 
   function closeStudioLoginModal() {
@@ -841,12 +1060,16 @@
     window.$message?.warning?.("请先登录后再进入");
   }
 
-  async function loginStudioUser(userId, password) {
-    const id = String(userId || "").trim();
+  async function loginStudioUser(usernameOrId, password) {
+    const id = resolveStudioUserId(usernameOrId);
     const pwd = String(password || "");
     const pwdErr = validateStudioPassword(pwd);
+    if (!String(usernameOrId || "").trim()) {
+      window.alert("请输入用户名");
+      return;
+    }
     if (!id) {
-      window.alert("请选择用户");
+      window.alert("找不到该用户名，请检查输入或先注册");
       return;
     }
     if (pwdErr) {
@@ -862,8 +1085,11 @@
       if (id !== studioUserId) {
         await switchStudioUser(id);
       }
+      setStudioSessionToken(data?.session_token || "");
       markStudioUserAuthed(id);
+      syncComfyUserIdentity(id, studioUsersMap[id] || id);
       updateStudioUserUi();
+      window.RhStudioAuth?.notifyAuthChange?.();
       closeStudioLoginModal();
       if (data?.first_time_setup) {
         window.alert("首次登录，密码已设置成功");
@@ -877,12 +1103,12 @@
     ownedPromptIds = loadOwnedPromptIds();
     chatHistoryEntries = loadChatHistoryEntries();
     queueLabelMap = loadQueueLabelMap();
+    queueEntries = loadQueueEntries();
     if (chatHistoryEntries.length) {
       currentConversationId = String(chatHistoryEntries[chatHistoryEntries.length - 1].conversation_id || "").trim();
     } else {
       currentConversationId = createConversationId();
     }
-    queueEntries = [];
     renderConversationList();
     renderChatForConversation(currentConversationId);
     renderQueueList();
@@ -930,8 +1156,11 @@
       studioUsersMap[id] = name;
       studioMultiUserEnabled = true;
       await switchStudioUser(id);
+      setStudioSessionToken(data?.session_token || "");
       markStudioUserAuthed(id);
+      syncComfyUserIdentity(id, name);
       updateStudioUserUi();
+      window.RhStudioAuth?.notifyAuthChange?.();
       closeStudioLoginModal();
     } catch (err) {
       window.alert(err?.message || "注册失败");
@@ -957,18 +1186,70 @@
       studioMultiUserEnabled = false;
       studioUserId = "default";
     }
-    renderStudioUserSelect(studioUsersMap);
     ownedPromptIds = loadOwnedPromptIds();
+    syncComfyUserIdentity(studioUserId, getStudioUserDisplayName());
     updateStudioUserUi();
+    await validateStudioSessionOnInit();
   }
 
   function bindStudioUserControls() {
     if (btnHomeLogin) {
-      btnHomeLogin.addEventListener("click", () => {
-        if (studioMultiUserEnabled) openStudioLoginModal();
-        else window.alert("当前为单用户模式，无需登录。");
+      btnHomeLogin.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (!studioMultiUserEnabled) {
+          toggleHomeAuthDropdown();
+          return;
+        }
+        if (isStudioUserAuthed()) toggleHomeAuthDropdown();
+        else openStudioLoginModal();
       });
     }
+    if (btnHomeApiSettings) {
+      btnHomeApiSettings.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openStudioApiSettings();
+      });
+    }
+    if (btnHomeLogout) {
+      btnHomeLogout.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void logoutStudioUser();
+      });
+    }
+    if (btnChatLogin) {
+      btnChatLogin.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (!studioMultiUserEnabled) {
+          toggleChatAuthDropdown();
+          return;
+        }
+        if (isStudioUserAuthed()) toggleChatAuthDropdown();
+        else openStudioLoginModal();
+      });
+    }
+    if (btnChatApiSettings) {
+      btnChatApiSettings.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openStudioApiSettings();
+      });
+    }
+    if (btnChatLogout) {
+      btnChatLogout.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void logoutStudioUser();
+      });
+    }
+    if (homeAuthMenu) {
+      homeAuthMenu.addEventListener("click", (event) => event.stopPropagation());
+    }
+    if (chatAuthMenu) {
+      chatAuthMenu.addEventListener("click", (event) => event.stopPropagation());
+    }
+    document.addEventListener("click", () => {
+      closeHomeAuthDropdown();
+      closeChatAuthDropdown();
+    });
+    window.addEventListener("rh-studio-auth-change", () => updateStudioUserUi());
     if (btnCloseStudioLogin) {
       btnCloseStudioLogin.addEventListener("click", closeStudioLoginModal);
     }
@@ -977,7 +1258,7 @@
     }
     if (btnConfirmStudioLogin) {
       btnConfirmStudioLogin.addEventListener("click", () => {
-        void loginStudioUser(studioLoginUserSelect?.value || studioUserId, studioLoginPassword?.value || "");
+        void loginStudioUser(studioLoginUsername?.value || "", studioLoginPassword?.value || "");
       });
     }
     if (btnRegisterStudioLogin) {
@@ -993,7 +1274,15 @@
       studioLoginPassword.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          void loginStudioUser(studioLoginUserSelect?.value || studioUserId, studioLoginPassword.value);
+          void loginStudioUser(studioLoginUsername?.value || "", studioLoginPassword.value);
+        }
+      });
+    }
+    if (studioLoginUsername) {
+      studioLoginUsername.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          studioLoginPassword?.focus();
         }
       });
     }
@@ -1684,11 +1973,15 @@
       cancellingQueuePromptIds.delete(promptId);
     }
     pruneAndSortQueueEntries();
+    persistQueueEntries();
   }
 
   function removeQueueEntry(promptId) {
-    cancellingQueuePromptIds.delete(String(promptId || "").trim());
-    queueEntries = queueEntries.filter((item) => item.prompt_id !== promptId);
+    const id = String(promptId || "").trim();
+    cancellingQueuePromptIds.delete(id);
+    queueEntries = queueEntries.filter((item) => item.prompt_id !== id);
+    unregisterOwnedPrompt(id);
+    persistQueueEntries();
     renderQueueList();
   }
 
@@ -1845,129 +2138,54 @@
     return "";
   }
 
-  async function fetchJobStatus(promptId) {
-    const encoded = encodeURIComponent(promptId);
-    const endpoints = [`/api/jobs/${encoded}`, `/jobs/${encoded}`];
-    for (const endpoint of endpoints) {
-      try {
-        const job = await requestJson(endpoint);
-        if (job && typeof job === "object") return job;
-      } catch {
-        // Try next endpoint.
-      }
+  function jobSourceLabel(source) {
+    const value = String(source || "").trim().toLowerCase();
+    if (value === "studio") return "创作工坊";
+    if (value === "portal") return "应用";
+    if (value === "canvas") return "画布";
+    return "任务";
+  }
+
+  function applyServerJobs(jobs) {
+    const nextEntries = [];
+    for (const job of jobs) {
+      if (!job || typeof job !== "object") continue;
+      const promptId = String(job.prompt_id || job.id || "").trim();
+      if (!promptId) continue;
+      registerOwnedPrompt(promptId);
+      const boundLabel = getBoundQueueLabel(promptId);
+      const serverTitle = String(job.title || "").trim();
+      if (serverTitle && !boundLabel) bindQueueLabel(promptId, serverTitle);
+      const label = boundLabel || serverTitle;
+      nextEntries.push({
+        prompt_id: promptId,
+        status: normalizeQueueStatus(job.status || "unknown"),
+        title: label ? buildQueueTitleFromPrompt(label) : "ComfyUI 任务",
+        mode: jobSourceLabel(job.source),
+        source: String(job.source || ""),
+        created_at: Number(job.create_time) || Date.now(),
+        updated_at: Number(job.updated_at) || Number(job.execution_end_time) || Number(job.create_time) || Date.now(),
+        number: job.number ?? "",
+        execution_start_time: Number(job.execution_start_time) || 0,
+        execution_end_time: Number(job.execution_end_time) || 0,
+        media_count: Number(job.media_count) || (Array.isArray(job.media) ? job.media.length : 0),
+        media_preview: Array.isArray(job.media) ? job.media : [],
+        error: "",
+        missing_polls: 0,
+      });
     }
-    return null;
+    queueEntries = nextEntries;
+    persistQueueEntries();
+    renderQueueList();
   }
 
   async function refreshQueueFromServer() {
     if (!queueList || queueRefreshInFlight) return;
+    if (studioMultiUserEnabled && !isStudioUserAuthed()) return;
     queueRefreshInFlight = true;
     try {
-      const queueData = await requestJson("/queue");
-      const runningRows = Array.isArray(queueData?.queue_running) ? queueData.queue_running : [];
-      const pendingRows = Array.isArray(queueData?.queue_pending) ? queueData.queue_pending : [];
-      const seen = new Set();
-
-      for (const row of runningRows) {
-        if (!isOwnQueueRow(row)) continue;
-        const promptId = extractPromptIdFromQueueRow(row);
-        if (!promptId) continue;
-        seen.add(promptId);
-        const rowText = extractQueueTextFromQueueRow(row);
-        if (rowText) bindQueueLabel(promptId, rowText);
-        let boundText = getBoundQueueLabel(promptId);
-        const existing = getQueueEntryByPromptId(promptId);
-        upsertQueueEntry({
-          prompt_id: promptId,
-          status: "running",
-          title: boundText ? buildQueueTitleFromPrompt(boundText) : existing?.title,
-          mode: existing?.mode || "队列",
-          number: Array.isArray(row) ? row[0] ?? "" : "",
-          missing_polls: 0,
-          updated_at: Date.now(),
-        });
-      }
-      for (const row of pendingRows) {
-        if (!isOwnQueueRow(row)) continue;
-        const promptId = extractPromptIdFromQueueRow(row);
-        if (!promptId) continue;
-        seen.add(promptId);
-        const rowText = extractQueueTextFromQueueRow(row);
-        if (rowText) bindQueueLabel(promptId, rowText);
-        let boundText = getBoundQueueLabel(promptId);
-        const existing = getQueueEntryByPromptId(promptId);
-        upsertQueueEntry({
-          prompt_id: promptId,
-          status: "pending",
-          title: boundText ? buildQueueTitleFromPrompt(boundText) : existing?.title,
-          mode: existing?.mode || "队列",
-          number: Array.isArray(row) ? row[0] ?? "" : "",
-          missing_polls: 0,
-          updated_at: Date.now(),
-        });
-      }
-
-      const probeCandidates = queueEntries.filter(
-        (item) => isOwnedPromptId(item.prompt_id) && !isQueueTerminalStatus(item.status) && !seen.has(item.prompt_id)
-      );
-      await Promise.all(
-        probeCandidates.map(async (item) => {
-          const promptId = item.prompt_id;
-          const missingPolls = Number(item.missing_polls) || 0;
-          const job = await fetchJobStatus(promptId);
-          if (job && typeof job === "object") {
-            const status = normalizeQueueStatus(job.status || "unknown");
-            upsertQueueEntry({
-              prompt_id: promptId,
-              status,
-              number: job.number ?? item.number ?? "",
-              created_at: Number(job.create_time) || item.created_at,
-              execution_start_time: Number(job.execution_start_time) || item.execution_start_time,
-              execution_end_time: Number(job.execution_end_time) || item.execution_end_time,
-              media_count: Number(job.media_count ?? item.media_count) || 0,
-              media_preview: Array.isArray(job.media) ? job.media : item.media_preview,
-              missing_polls: 0,
-              updated_at: Date.now(),
-            });
-            return;
-          }
-          try {
-            const result = await requestJson(`/rh/api/studio/result?prompt_id=${encodeURIComponent(promptId)}`);
-            if (result?.ok && result?.completed) {
-              const status = normalizeQueueStatus(result.status || "completed");
-              upsertQueueEntry({
-                prompt_id: promptId,
-                status: status === "unknown" ? "completed" : status,
-                media_count: Array.isArray(result.media) ? result.media.length : 0,
-                media_preview: Array.isArray(result.media) ? result.media : [],
-                missing_polls: 0,
-                updated_at: Date.now(),
-              });
-              return;
-            }
-          } catch {
-            // Continue to stale detection below.
-          }
-          const nextMissing = missingPolls + 1;
-          if (nextMissing >= QUEUE_STALE_POLLS_TO_CANCEL) {
-            upsertQueueEntry({
-              prompt_id: promptId,
-              status: "cancelled",
-              error: "任务已不在后端队列，自动标记为已取消。",
-              missing_polls: 0,
-              updated_at: Date.now(),
-            });
-          } else {
-            upsertQueueEntry({
-              prompt_id: promptId,
-              missing_polls: nextMissing,
-              updated_at: Date.now(),
-            });
-          }
-        })
-      );
-      pruneQueueEntriesToOwned();
-      renderQueueList();
+      const data = await requestJson("/rh/api/jobs?limit=50&max_items=120");
+      applyServerJobs(Array.isArray(data?.jobs) ? data.jobs : []);
     } catch {
       // Ignore queue refresh errors to avoid spamming user.
     } finally {
@@ -2719,7 +2937,7 @@
       }
     }
     if (!workflowApp.value) {
-      appendSystemMessage("<strong>缺少流程模板</strong><br />请先在 Portal 发布至少一个 app（`portal_apps/*.json`）。");
+      appendSystemMessage("<strong>缺少流程模板</strong><br />请先在 Portal 发布至少一个 app（`creative-studio-ui/data/apps/*.json`）。");
       return;
     }
 
@@ -2785,6 +3003,9 @@
           params: buildComfyParams(text, uploadedNames),
           client_id: getStudioClientId(),
           user_id: studioUserId,
+          source: "studio",
+          conversation_id: runConversationId,
+          title: displayText,
           wait: true,
           timeout_sec: 600,
         }),
@@ -3034,7 +3255,9 @@
     });
   }
   if (btnQueueToggle) {
-    btnQueueToggle.addEventListener("click", () => {
+    btnQueueToggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const collapsed = queuePanel?.classList.contains("is-collapsed");
       setQueueCollapsedState(!collapsed, { persist: true });
     });
@@ -3131,9 +3354,9 @@
     }
   });
 
-  announcementClose.addEventListener("click", () => {
-    announcement.hidden = true;
-  });
+  // announcementClose.addEventListener("click", () => {
+  //   announcement.hidden = true;
+  // });
   window.addEventListener("resize", () => {
     if (isParamsPopoverOpen()) updateParamsPopoverPlacement();
   });
@@ -3200,7 +3423,9 @@
     }
     renderConversationList();
     renderChatForConversation(currentConversationId);
+    ownedPromptIds = loadOwnedPromptIds();
     queueLabelMap = loadQueueLabelMap();
+    queueEntries = loadQueueEntries();
     setQueueCollapsedState(loadQueueCollapsedState(), { persist: false });
     renderQueueList();
     void refreshQueueFromServer();
@@ -3213,6 +3438,7 @@
     updateModeUI();
     bindLandingEntrances();
     bindStudioUserControls();
+    window.RhTheme?.bindToggleButtons?.();
     setupPrettySelects();
     loadWorkflowApps();
   })();

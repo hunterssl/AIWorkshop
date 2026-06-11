@@ -1,0 +1,425 @@
+{
+  "id": "yyy",
+  "name": "受不了啦",
+  "description": "3333",
+  "cover_url": "/rh/portal/covers/59da103c9cb741feafdd581ce9bb4d41.png",
+  "version": "1.0.0",
+  "tags": [],
+  "updated_at": "2026-05-16T02:16:51.064Z",
+  "workflow_json": {
+    "id": "6fcb8b56-8232-4290-9b42-676373092edf",
+    "revision": 0,
+    "last_node_id": 27,
+    "last_link_id": 27,
+    "nodes": [
+      {
+        "id": 22,
+        "type": "LoadImage",
+        "pos": [
+          -26.533506601920323,
+          19.61334588816294
+        ],
+        "size": [
+          270,
+          339.59375
+        ],
+        "flags": {},
+        "order": 0,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "IMAGE",
+            "type": "IMAGE",
+            "links": [
+              22,
+              23
+            ]
+          },
+          {
+            "name": "MASK",
+            "type": "MASK",
+            "links": null
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "LoadImage"
+        },
+        "widgets_values": [
+          "ComfyUI_00003_.png",
+          "image"
+        ]
+      },
+      {
+        "id": 23,
+        "type": "VAEEncode",
+        "pos": [
+          363.8081886635423,
+          110.33116098046884
+        ],
+        "size": [
+          225,
+          71.59375
+        ],
+        "flags": {},
+        "order": 3,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "pixels",
+            "type": "IMAGE",
+            "link": 22
+          },
+          {
+            "name": "vae",
+            "type": "VAE",
+            "link": 26
+          }
+        ],
+        "outputs": [
+          {
+            "name": "LATENT",
+            "type": "LATENT",
+            "links": [
+              24
+            ]
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "VAEEncode"
+        },
+        "widgets_values": []
+      },
+      {
+        "id": 24,
+        "type": "SaveImage",
+        "pos": [
+          448.08935188354326,
+          -116.9796267809661
+        ],
+        "size": [
+          270,
+          83.578125
+        ],
+        "flags": {},
+        "order": 2,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "images",
+            "type": "IMAGE",
+            "link": 23
+          }
+        ],
+        "outputs": [],
+        "properties": {},
+        "widgets_values": [
+          "ComfyUI"
+        ]
+      },
+      {
+        "id": 25,
+        "type": "VAEDecode",
+        "pos": [
+          702.7255577819083,
+          92.10684465813418
+        ],
+        "size": [
+          225,
+          71.59375
+        ],
+        "flags": {},
+        "order": 4,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "samples",
+            "type": "LATENT",
+            "link": 24
+          },
+          {
+            "name": "vae",
+            "type": "VAE",
+            "link": 27
+          }
+        ],
+        "outputs": [
+          {
+            "name": "IMAGE",
+            "type": "IMAGE",
+            "links": [
+              25
+            ]
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "VAEDecode"
+        },
+        "widgets_values": []
+      },
+      {
+        "id": 26,
+        "type": "SaveImage",
+        "pos": [
+          1055.5117569415456,
+          -116.7862892368833
+        ],
+        "size": [
+          270,
+          83.578125
+        ],
+        "flags": {},
+        "order": 5,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "images",
+            "type": "IMAGE",
+            "link": 25
+          }
+        ],
+        "outputs": [],
+        "properties": {},
+        "widgets_values": [
+          "ComfyUI"
+        ]
+      },
+      {
+        "id": 27,
+        "type": "CheckpointLoaderSimple",
+        "pos": [
+          -84.58181254254782,
+          486.6806418957942
+        ],
+        "size": [
+          273.4375,
+          130.25
+        ],
+        "flags": {},
+        "order": 1,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "MODEL",
+            "type": "MODEL",
+            "links": null
+          },
+          {
+            "name": "CLIP",
+            "type": "CLIP",
+            "links": null
+          },
+          {
+            "name": "VAE",
+            "type": "VAE",
+            "links": [
+              26,
+              27
+            ]
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "CheckpointLoaderSimple"
+        },
+        "widgets_values": [
+          "epicphotogasm_xPhotoreal.safetensors"
+        ]
+      }
+    ],
+    "links": [
+      [
+        22,
+        22,
+        0,
+        23,
+        0,
+        "IMAGE"
+      ],
+      [
+        23,
+        22,
+        0,
+        24,
+        0,
+        "IMAGE"
+      ],
+      [
+        24,
+        23,
+        0,
+        25,
+        0,
+        "LATENT"
+      ],
+      [
+        25,
+        25,
+        0,
+        26,
+        0,
+        "IMAGE"
+      ],
+      [
+        26,
+        27,
+        2,
+        23,
+        1,
+        "VAE"
+      ],
+      [
+        27,
+        27,
+        2,
+        25,
+        1,
+        "VAE"
+      ]
+    ],
+    "groups": [],
+    "config": {},
+    "extra": {
+      "ds": {
+        "scale": 0.6303940863128494,
+        "offset": [
+          471.71434998307376,
+          227.4157081677874
+        ]
+      },
+      "frontendVersion": "1.42.15",
+      "workflowRendererVersion": "LG",
+      "VHS_latentpreview": false,
+      "VHS_latentpreviewrate": 0,
+      "VHS_MetadataImage": true,
+      "VHS_KeepIntermediate": true
+    },
+    "version": 0.4
+  },
+  "prompt_template": {
+    "22": {
+      "inputs": {
+        "image": "ComfyUI_00003_.png"
+      },
+      "class_type": "LoadImage",
+      "_meta": {
+        "title": "加载图像"
+      }
+    },
+    "23": {
+      "inputs": {
+        "pixels": [
+          "22",
+          0
+        ],
+        "vae": [
+          "27",
+          2
+        ]
+      },
+      "class_type": "VAEEncode",
+      "_meta": {
+        "title": "VAE编码"
+      }
+    },
+    "24": {
+      "inputs": {
+        "filename_prefix": "ComfyUI",
+        "images": [
+          "22",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "保存图像"
+      }
+    },
+    "25": {
+      "inputs": {
+        "samples": [
+          "23",
+          0
+        ],
+        "vae": [
+          "27",
+          2
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE解码"
+      }
+    },
+    "26": {
+      "inputs": {
+        "filename_prefix": "ComfyUI",
+        "images": [
+          "25",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "保存图像"
+      }
+    },
+    "27": {
+      "inputs": {
+        "ckpt_name": "epicphotogasm_xPhotoreal.safetensors"
+      },
+      "class_type": "CheckpointLoaderSimple",
+      "_meta": {
+        "title": "Checkpoint加载器（简易）"
+      }
+    }
+  },
+  "studio_modes": [
+    "t2i"
+  ],
+  "params": [
+    {
+      "key": "image_22",
+      "label": "图像",
+      "type": "image",
+      "default": "ComfyUI_00003_.png",
+      "bindings": [
+        {
+          "node_id": "22",
+          "input_name": "image"
+        }
+      ]
+    },
+    {
+      "key": "ckpt_name_27",
+      "label": "Checkpoint名称",
+      "type": "select",
+      "default": "epicphotogasm_xPhotoreal.safetensors",
+      "options": [
+        "epicphotogasm_xPhotoreal.safetensors",
+        "juggernautXL_ragnarokBy.safetensors"
+      ],
+      "bindings": [
+        {
+          "node_id": "27",
+          "input_name": "ckpt_name"
+        }
+      ]
+    }
+  ],
+  "publish_meta": {
+    "source": "main_ui",
+    "node_count": 6,
+    "selected_param_count": 2
+  },
+  "validation_snapshot": {
+    "ok": true,
+    "output_count": 2,
+    "outputs": [
+      "26",
+      "24"
+    ],
+    "node_count": 6,
+    "node_errors": {}
+  }
+}

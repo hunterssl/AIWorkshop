@@ -1,0 +1,170 @@
+/* 灵影平台 — 三端统一的用户信息徽章 */
+.rh-user-badge {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.rh-user-badge__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(129, 140, 248, 0.32);
+  background: rgba(255, 255, 255, 0.88);
+  color: #4338ca;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.rh-user-badge__btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.16);
+}
+
+.rh-user-badge__btn.is-logged-in {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.rh-user-badge__icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.rh-user-badge__dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(10px);
+  z-index: 40;
+}
+
+.rh-user-badge__dropdown.is-hidden {
+  display: none;
+}
+
+.rh-user-badge__dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #334155;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rh-user-badge__dropdown-item:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: #4338ca;
+}
+
+/* 深色背景（无限画布） */
+.dark .rh-user-badge__btn,
+[data-theme="dark"] .rh-user-badge__btn {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #bfdbfe;
+}
+
+.dark .rh-user-badge__btn.is-logged-in,
+[data-theme="dark"] .rh-user-badge__btn.is-logged-in {
+  color: #e2e8f0;
+}
+
+.dark .rh-user-badge__dropdown,
+[data-theme="dark"] .rh-user-badge__dropdown {
+  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(96, 165, 250, 0.22);
+}
+
+.dark .rh-user-badge__dropdown-item,
+[data-theme="dark"] .rh-user-badge__dropdown-item {
+  color: #cbd5e1;
+}
+
+.dark .rh-user-badge__dropdown-item:hover,
+[data-theme="dark"] .rh-user-badge__dropdown-item:hover {
+  background: rgba(59, 130, 246, 0.16);
+  color: #dbeafe;
+}
+
+/* 顶栏图标按钮 — 与用户徽章统一高度与描边 */
+.rh-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rh-header-icon-btn {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(129, 140, 248, 0.32);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #4338ca;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease,
+    transform 0.16s ease;
+}
+
+.rh-header-icon-btn:hover {
+  background: rgba(238, 242, 255, 0.98);
+  border-color: rgba(129, 140, 248, 0.5);
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.16);
+  transform: translateY(-1px);
+}
+
+.rh-header-icon-btn.is-active {
+  border-color: rgba(129, 140, 248, 0.55);
+  color: #6d28d9;
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.18), rgba(244, 114, 182, 0.14));
+}
+
+.dark .rh-header-icon-btn,
+html.dark .rh-header-icon-btn,
+[data-theme="dark"] .rh-header-icon-btn {
+  background: rgba(15, 23, 42, 0.82);
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #bfdbfe;
+  box-shadow: 0 4px 14px rgba(2, 6, 23, 0.35);
+}
+
+.dark .rh-header-icon-btn:hover,
+html.dark .rh-header-icon-btn:hover,
+[data-theme="dark"] .rh-header-icon-btn:hover {
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.dark .rh-header-icon-btn.is-active,
+html.dark .rh-header-icon-btn.is-active,
+[data-theme="dark"] .rh-header-icon-btn.is-active {
+  border-color: rgba(129, 140, 248, 0.55);
+  color: #c4b5fd;
+  background: linear-gradient(135deg, rgba(67, 56, 202, 0.38), rgba(124, 58, 237, 0.28));
+}
