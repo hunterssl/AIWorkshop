@@ -1,0 +1,80 @@
+/**
+ * 与创作工坊主界面一致的渐变背景
+ * 亮色：静态柔和渐变，避免色带；暗色：保留轻微动态
+ */
+:root {
+  --studio-bg: #eef2ff;
+  --bg-primary: transparent;
+  --bg-secondary: rgba(255, 255, 255, 0.92);
+  --bg-tertiary: rgba(241, 245, 249, 0.96);
+  --border-color: rgba(203, 213, 225, 0.85);
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --accent-color: #7c3aed;
+  --accent-hover: #6d28d9;
+
+  /* 连线 — 统一灰白色 */
+  --edge-line-base: #d1d5db;
+}
+
+.dark {
+  --studio-bg: #071018;
+  --bg-primary: transparent;
+  --bg-secondary: rgba(15, 30, 58, 0.92);
+  --bg-tertiary: rgba(30, 58, 95, 0.88);
+  --border-color: rgba(96, 165, 250, 0.22);
+  --text-primary: #e0f2fe;
+  --text-secondary: #94a3b8;
+  --accent-color: #60a5fa;
+  --accent-hover: #3b82f6;
+
+  /* 连线 — 统一灰白色 */
+  --edge-line-base: #94a3b8;
+}
+
+html,
+body,
+#app {
+  background-color: var(--studio-bg);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 12% -8%, rgba(129, 140, 248, 0.14), transparent 62%),
+    radial-gradient(ellipse 80% 50% at 88% 4%, rgba(244, 114, 182, 0.1), transparent 58%),
+    radial-gradient(ellipse 70% 45% at 50% 100%, rgba(167, 139, 250, 0.08), transparent 55%),
+    linear-gradient(180deg, #f8faff 0%, var(--studio-bg) 100%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+}
+
+.dark html,
+.dark body,
+.dark #app {
+  background-image:
+    radial-gradient(1200px 640px at 8% 0%, rgba(37, 99, 235, 0.38), transparent 58%),
+    radial-gradient(1100px 600px at 92% 6%, rgba(14, 165, 233, 0.32), transparent 60%),
+    radial-gradient(1000px 560px at 48% 100%, rgba(59, 130, 246, 0.24), transparent 62%),
+    radial-gradient(900px 500px at 55% 18%, rgba(96, 165, 250, 0.18), transparent 58%),
+    linear-gradient(180deg, #0f2847 0%, var(--studio-bg) 100%);
+  background-size: 170% 170%, 180% 180%, 190% 190%, 175% 175%, 100% 100%;
+  animation: studioBgFlow 14s ease-in-out infinite alternate;
+}
+
+.vue-flow,
+.canvas-flow {
+  background: transparent !important;
+}
+
+.studio-canvas-page {
+  background: transparent;
+}
+
+@keyframes studioBgFlow {
+  0% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 58% 12%, 0% 0%;
+  }
+  50% {
+    background-position: 30% 16%, 78% 20%, 40% 85%, 48% 18%, 0% 0%;
+  }
+  100% {
+    background-position: 45% 26%, 62% 28%, 35% 74%, 36% 24%, 0% 0%;
+  }
+}
