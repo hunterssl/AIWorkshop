@@ -87,6 +87,18 @@
     return STUDIO_PROMPT_PARAM_KEYS.has(String(key || "").trim());
   }
 
+  /** 发布时映射到主输入框的提示词参数（含 label 为「提示词 / Prompt」的暴露项） */
+  function isStudioPromptParam(param) {
+    if (!param || typeof param !== "object") return false;
+    if (isStudioPromptParamKey(param.key)) return true;
+    const type = String(param.type || "text").toLowerCase();
+    if (type !== "text" && type !== "textarea") return false;
+    const label = String(param.label || "");
+    const key = String(param.key || "").toLowerCase();
+    if (/负面|negative/i.test(label) || /negative/.test(key)) return true;
+    return /提示词|prompt/i.test(label) || /^prompt$|positive|negative/.test(key);
+  }
+
   /** @type {{ id: string, file: File, objectUrl: string }[]} */
   let referenceItems = [];
   let referenceItemSeq = 0;
@@ -1317,6 +1329,7 @@
     if (!homeLanding) return;
     const path = String(window.location.pathname || "");
     const inChatPage = /\/rh\/studio\/chat\/?$/.test(path);
+    document.title = inChatPage ? "玄机灵界AI智能体创作平台聊天" : "玄机灵界AI智能体创作平台";
     if (inChatPage) {
       homeLanding.classList.add("is-hidden");
       studioLayout?.classList.remove("is-hidden");
@@ -1540,7 +1553,7 @@
   }
 
   function getVisibleDynamicParams(params) {
-    let list = Array.isArray(params) ? params.filter((p) => p && !isStudioPromptParamKey(p.key)) : [];
+    let list = Array.isArray(params) ? params.filter((p) => p && !isStudioPromptParam(p)) : [];
     if (needsReferenceMode()) {
       list = list.filter((p) => {
         const t = String(p.type || "text").toLowerCase();
@@ -1648,7 +1661,7 @@
     const defs = Array.isArray(currentAppDetail?.params) ? currentAppDetail.params : [];
     const byKey = {};
     for (const p of defs) {
-      if (p && typeof p === "object" && p.key && !isStudioPromptParamKey(p.key)) {
+      if (p && typeof p === "object" && p.key && !isStudioPromptParam(p)) {
         byKey[String(p.key)] = p;
       }
     }
