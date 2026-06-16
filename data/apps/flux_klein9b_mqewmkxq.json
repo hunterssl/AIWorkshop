@@ -1,0 +1,1332 @@
+{
+  "id": "flux_klein9b_mqewmkxq",
+  "name": "Flux Klein9B 文生图",
+  "description": "Flux Klein9B 文生图",
+  "cover_url": "/rh/portal/covers/74b967e2c91e41ce82bcaf67a7cab15d.png",
+  "version": "1.0.0",
+  "tags": [],
+  "updated_at": "2026-06-15T07:43:09.418Z",
+  "workflow_json": {
+    "id": "92112d97-bb64-4b44-86f2-ea5691ef8f6e",
+    "revision": 0,
+    "last_node_id": 127,
+    "last_link_id": 191,
+    "nodes": [
+      {
+        "id": 9,
+        "type": "SaveImage",
+        "pos": [
+          1264.3955445793158,
+          333.6730945821856
+        ],
+        "size": [
+          520,
+          550
+        ],
+        "flags": {},
+        "order": 15,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "images",
+            "type": "IMAGE",
+            "link": 191
+          }
+        ],
+        "outputs": [],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "SaveImage",
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65,
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          }
+        },
+        "widgets_values": [
+          "Flux2-Klein"
+        ]
+      },
+      {
+        "id": 114,
+        "type": "KSamplerSelect",
+        "pos": [
+          160,
+          545
+        ],
+        "size": [
+          270,
+          110
+        ],
+        "flags": {},
+        "order": 0,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "SAMPLER",
+            "type": "SAMPLER",
+            "links": [
+              182
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "KSamplerSelect",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          "euler"
+        ]
+      },
+      {
+        "id": 115,
+        "type": "Flux2Scheduler",
+        "pos": [
+          160,
+          695
+        ],
+        "size": [
+          270,
+          170
+        ],
+        "flags": {},
+        "order": 8,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "width",
+            "type": "INT",
+            "widget": {
+              "name": "width"
+            },
+            "link": 175
+          },
+          {
+            "name": "height",
+            "type": "INT",
+            "widget": {
+              "name": "height"
+            },
+            "link": 176
+          }
+        ],
+        "outputs": [
+          {
+            "name": "SIGMAS",
+            "type": "SIGMAS",
+            "links": [
+              183
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "Flux2Scheduler",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          20,
+          1024,
+          1024
+        ]
+      },
+      {
+        "id": 116,
+        "type": "CFGGuider",
+        "pos": [
+          160,
+          355
+        ],
+        "size": [
+          270,
+          160
+        ],
+        "flags": {},
+        "order": 12,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "model",
+            "type": "MODEL",
+            "link": 177
+          },
+          {
+            "name": "positive",
+            "type": "CONDITIONING",
+            "link": 178
+          },
+          {
+            "name": "negative",
+            "type": "CONDITIONING",
+            "link": 179
+          }
+        ],
+        "outputs": [
+          {
+            "name": "GUIDER",
+            "type": "GUIDER",
+            "links": [
+              181
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "CFGGuider",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          5
+        ]
+      },
+      {
+        "id": 117,
+        "type": "SamplerCustomAdvanced",
+        "pos": [
+          500,
+          225
+        ],
+        "size": [
+          230,
+          416
+        ],
+        "flags": {},
+        "order": 13,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "noise",
+            "type": "NOISE",
+            "link": 180
+          },
+          {
+            "name": "guider",
+            "type": "GUIDER",
+            "link": 181
+          },
+          {
+            "name": "sampler",
+            "type": "SAMPLER",
+            "link": 182
+          },
+          {
+            "name": "sigmas",
+            "type": "SIGMAS",
+            "link": 183
+          },
+          {
+            "name": "latent_image",
+            "type": "LATENT",
+            "link": 184
+          }
+        ],
+        "outputs": [
+          {
+            "name": "output",
+            "type": "LATENT",
+            "links": [
+              185
+            ]
+          },
+          {
+            "name": "denoised_output",
+            "type": "LATENT",
+            "links": []
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "SamplerCustomAdvanced",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": []
+      },
+      {
+        "id": 118,
+        "type": "VAEDecode",
+        "pos": [
+          800,
+          195
+        ],
+        "size": [
+          230,
+          100
+        ],
+        "flags": {},
+        "order": 14,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "samples",
+            "type": "LATENT",
+            "link": 185
+          },
+          {
+            "name": "vae",
+            "type": "VAE",
+            "link": 186
+          }
+        ],
+        "outputs": [
+          {
+            "name": "IMAGE",
+            "type": "IMAGE",
+            "slot_index": 0,
+            "links": [
+              191
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "VAEDecode",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": []
+      },
+      {
+        "id": 119,
+        "type": "EmptyFlux2LatentImage",
+        "pos": [
+          160,
+          995
+        ],
+        "size": [
+          270,
+          170
+        ],
+        "flags": {},
+        "order": 9,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "width",
+            "type": "INT",
+            "widget": {
+              "name": "width"
+            },
+            "link": 187
+          },
+          {
+            "name": "height",
+            "type": "INT",
+            "widget": {
+              "name": "height"
+            },
+            "link": 188
+          }
+        ],
+        "outputs": [
+          {
+            "name": "LATENT",
+            "type": "LATENT",
+            "links": [
+              184
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "EmptyFlux2LatentImage",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          1024,
+          1024,
+          1
+        ]
+      },
+      {
+        "id": 120,
+        "type": "CLIPTextEncode",
+        "pos": [
+          -350,
+          565
+        ],
+        "size": [
+          430,
+          140
+        ],
+        "flags": {},
+        "order": 10,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "clip",
+            "type": "CLIP",
+            "link": 189
+          }
+        ],
+        "outputs": [
+          {
+            "name": "CONDITIONING",
+            "type": "CONDITIONING",
+            "slot_index": 0,
+            "links": [
+              179
+            ]
+          }
+        ],
+        "title": "CLIP Text Encode (Negative Prompt)",
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "CLIPTextEncode",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          ""
+        ],
+        "color": "#322",
+        "bgcolor": "#533"
+      },
+      {
+        "id": 121,
+        "type": "PrimitiveInt",
+        "pos": [
+          -730,
+          975
+        ],
+        "size": [
+          270,
+          110
+        ],
+        "flags": {},
+        "order": 1,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "INT",
+            "type": "INT",
+            "links": [
+              175,
+              187
+            ]
+          }
+        ],
+        "title": "Width",
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "PrimitiveInt",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          1024,
+          "fixed"
+        ]
+      },
+      {
+        "id": 122,
+        "type": "PrimitiveInt",
+        "pos": [
+          -730,
+          1125
+        ],
+        "size": [
+          270,
+          110
+        ],
+        "flags": {},
+        "order": 2,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "INT",
+            "type": "INT",
+            "links": [
+              176,
+              188
+            ]
+          }
+        ],
+        "title": "Height",
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "PrimitiveInt",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          1024,
+          "fixed"
+        ]
+      },
+      {
+        "id": 123,
+        "type": "RandomNoise",
+        "pos": [
+          160,
+          215
+        ],
+        "size": [
+          270,
+          110
+        ],
+        "flags": {},
+        "order": 3,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "NOISE",
+            "type": "NOISE",
+            "links": [
+              180
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "RandomNoise",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          518160660902944,
+          "randomize"
+        ]
+      },
+      {
+        "id": 126,
+        "type": "VAELoader",
+        "pos": [
+          -779.3716880580671,
+          690.1843758317436
+        ],
+        "size": [
+          350,
+          110
+        ],
+        "flags": {},
+        "order": 4,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "VAE",
+            "type": "VAE",
+            "links": [
+              186
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "VAELoader",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "models": [
+            {
+              "name": "full_encoder_small_decoder.safetensors",
+              "url": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/main/full_encoder_small_decoder.safetensors",
+              "directory": "vae"
+            }
+          ],
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          "full_encoder_small_decoder.safetensors"
+        ]
+      },
+      {
+        "id": 125,
+        "type": "CLIPLoader",
+        "pos": [
+          -787.4868097541893,
+          474.0068359008205
+        ],
+        "size": [
+          370,
+          170.65625
+        ],
+        "flags": {},
+        "order": 5,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "CLIP",
+            "type": "CLIP",
+            "links": [
+              189,
+              190
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "CLIPLoader",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "models": [
+            {
+              "name": "qwen_3_8b_fp8mixed.safetensors",
+              "url": "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors",
+              "directory": "text_encoders"
+            }
+          ],
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          "qwen_3_8b_fp8mixed.safetensors",
+          "flux2",
+          "default"
+        ]
+      },
+      {
+        "id": 127,
+        "type": "CLIPTextEncode",
+        "pos": [
+          -350,
+          235
+        ],
+        "size": [
+          430,
+          280
+        ],
+        "flags": {},
+        "order": 11,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "clip",
+            "type": "CLIP",
+            "link": 190
+          }
+        ],
+        "outputs": [
+          {
+            "name": "CONDITIONING",
+            "type": "CONDITIONING",
+            "slot_index": 0,
+            "links": [
+              178
+            ]
+          }
+        ],
+        "title": "CLIP Text Encode (Positive Prompt)",
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "CLIPTextEncode",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          "一只小狗在水面上奔跑"
+        ],
+        "color": "#232",
+        "bgcolor": "#353"
+      },
+      {
+        "id": 124,
+        "type": "UNETLoader",
+        "pos": [
+          -790,
+          235
+        ],
+        "size": [
+          370,
+          136
+        ],
+        "flags": {},
+        "order": 6,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "MODEL",
+            "type": "MODEL",
+            "links": [
+              177
+            ]
+          }
+        ],
+        "properties": {
+          "cnr_id": "comfy-core",
+          "ver": "0.8.2",
+          "Node name for S&R": "UNETLoader",
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          },
+          "models": [
+            {
+              "name": "flux-2-klein-base-9b-fp8.safetensors",
+              "url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-base-9b-fp8/resolve/main/flux-2-klein-base-9b-fp8.safetensors",
+              "directory": "diffusion_models"
+            }
+          ],
+          "enableTabs": false,
+          "tabWidth": 65,
+          "tabXOffset": 10,
+          "hasSecondTab": false,
+          "secondTabText": "Send Back",
+          "secondTabOffset": 80,
+          "secondTabWidth": 65
+        },
+        "widgets_values": [
+          "flux\\flux-2-klein-9b-fp8.safetensors",
+          "fp8_e4m3fn"
+        ]
+      },
+      {
+        "id": 79,
+        "type": "MarkdownNote",
+        "pos": [
+          -1679.5523341397259,
+          177.7160030052592
+        ],
+        "size": [
+          550,
+          940
+        ],
+        "flags": {},
+        "order": 7,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [],
+        "properties": {
+          "ue_properties": {
+            "widget_ue_connectable": {},
+            "version": "7.7",
+            "input_ue_unconnectable": {}
+          }
+        },
+        "widgets_values": [
+          "## Model Links (for Local Users)\n\n**diffusion_models**\n\n- [flux-2-klein-base-9b-fp8.safetensors](https://huggingface.co/black-forest-labs/FLUX.2-klein-base-9b-fp8/resolve/main/flux-2-klein-base-9b-fp8.safetensors)\n- [flux-2-klein-9b-fp8.safetensors](https://huggingface.co/black-forest-labs/FLUX.2-klein-9b-fp8/resolve/main/flux-2-klein-9b-fp8.safetensors)\n\n**text_encoders**\n\n- [qwen_3_8b_fp8mixed.safetensors](https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors)\n\n**vae**\n\n- [full_encoder_small_decoder.safetensors](https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/main/full_encoder_small_decoder.safetensors)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── flux-2-klein-base-9b-fp8.safetensors\n│   │   └── flux-2-klein-9b-fp8.safetensors\n│   ├── 📂 text_encoders/\n│   │   └── qwen_3_8b_fp8mixed.safetensors\n│   └── 📂 vae/\n│       └── full_encoder_small_decoder.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
+        ],
+        "color": "#222",
+        "bgcolor": "#000"
+      }
+    ],
+    "links": [
+      [
+        175,
+        121,
+        0,
+        115,
+        0,
+        "INT"
+      ],
+      [
+        176,
+        122,
+        0,
+        115,
+        1,
+        "INT"
+      ],
+      [
+        177,
+        124,
+        0,
+        116,
+        0,
+        "MODEL"
+      ],
+      [
+        178,
+        127,
+        0,
+        116,
+        1,
+        "CONDITIONING"
+      ],
+      [
+        179,
+        120,
+        0,
+        116,
+        2,
+        "CONDITIONING"
+      ],
+      [
+        180,
+        123,
+        0,
+        117,
+        0,
+        "NOISE"
+      ],
+      [
+        181,
+        116,
+        0,
+        117,
+        1,
+        "GUIDER"
+      ],
+      [
+        182,
+        114,
+        0,
+        117,
+        2,
+        "SAMPLER"
+      ],
+      [
+        183,
+        115,
+        0,
+        117,
+        3,
+        "SIGMAS"
+      ],
+      [
+        184,
+        119,
+        0,
+        117,
+        4,
+        "LATENT"
+      ],
+      [
+        185,
+        117,
+        0,
+        118,
+        0,
+        "LATENT"
+      ],
+      [
+        186,
+        126,
+        0,
+        118,
+        1,
+        "VAE"
+      ],
+      [
+        187,
+        121,
+        0,
+        119,
+        0,
+        "INT"
+      ],
+      [
+        188,
+        122,
+        0,
+        119,
+        1,
+        "INT"
+      ],
+      [
+        189,
+        125,
+        0,
+        120,
+        0,
+        "CLIP"
+      ],
+      [
+        190,
+        125,
+        0,
+        127,
+        0,
+        "CLIP"
+      ],
+      [
+        191,
+        118,
+        0,
+        9,
+        0,
+        "IMAGE"
+      ]
+    ],
+    "groups": [
+      {
+        "id": 1,
+        "title": "Models",
+        "bounding": [
+          -810,
+          145,
+          410,
+          670
+        ],
+        "color": "#3f789e",
+        "flags": {}
+      },
+      {
+        "id": 2,
+        "title": "Prompt",
+        "bounding": [
+          -370,
+          145,
+          470,
+          670
+        ],
+        "color": "#3f789e",
+        "flags": {}
+      },
+      {
+        "id": 3,
+        "title": "Sampler",
+        "bounding": [
+          130,
+          145,
+          630,
+          750
+        ],
+        "color": "#3f789e",
+        "flags": {}
+      },
+      {
+        "id": 4,
+        "title": "Image Size",
+        "bounding": [
+          -790,
+          885,
+          380,
+          350
+        ],
+        "color": "#3f789e",
+        "flags": {}
+      }
+    ],
+    "config": {},
+    "extra": {
+      "ds": {
+        "scale": 0.598950000000001,
+        "offset": [
+          1545.1760546813402,
+          54.548813605525744
+        ]
+      },
+      "frontendVersion": "1.44.19",
+      "workflowRendererVersion": "LG",
+      "VHS_latentpreview": false,
+      "VHS_latentpreviewrate": 0,
+      "VHS_MetadataImage": true,
+      "VHS_KeepIntermediate": true,
+      "ue_links": [],
+      "links_added_by_ue": []
+    },
+    "version": 0.4
+  },
+  "prompt_template": {
+    "9": {
+      "inputs": {
+        "filename_prefix": "Flux2-Klein",
+        "images": [
+          "118",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "保存图像"
+      }
+    },
+    "114": {
+      "inputs": {
+        "sampler_name": "euler"
+      },
+      "class_type": "KSamplerSelect",
+      "_meta": {
+        "title": "K采样器选择"
+      }
+    },
+    "115": {
+      "inputs": {
+        "steps": 20,
+        "width": [
+          "121",
+          0
+        ],
+        "height": [
+          "122",
+          0
+        ]
+      },
+      "class_type": "Flux2Scheduler",
+      "_meta": {
+        "title": "Flux2调度器"
+      }
+    },
+    "116": {
+      "inputs": {
+        "cfg": 5.0,
+        "model": [
+          "124",
+          0
+        ],
+        "positive": [
+          "127",
+          0
+        ],
+        "negative": [
+          "120",
+          0
+        ]
+      },
+      "class_type": "CFGGuider",
+      "_meta": {
+        "title": "CFG引导器"
+      }
+    },
+    "117": {
+      "inputs": {
+        "noise": [
+          "123",
+          0
+        ],
+        "guider": [
+          "116",
+          0
+        ],
+        "sampler": [
+          "114",
+          0
+        ],
+        "sigmas": [
+          "115",
+          0
+        ],
+        "latent_image": [
+          "119",
+          0
+        ]
+      },
+      "class_type": "SamplerCustomAdvanced",
+      "_meta": {
+        "title": "自定义采样器（高级）"
+      }
+    },
+    "118": {
+      "inputs": {
+        "samples": [
+          "117",
+          0
+        ],
+        "vae": [
+          "126",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE解码"
+      }
+    },
+    "119": {
+      "inputs": {
+        "width": [
+          "121",
+          0
+        ],
+        "height": [
+          "122",
+          0
+        ],
+        "batch_size": 1
+      },
+      "class_type": "EmptyFlux2LatentImage",
+      "_meta": {
+        "title": "空Latent图像（Flux2）"
+      }
+    },
+    "120": {
+      "inputs": {
+        "text": "",
+        "clip": [
+          "125",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP Text Encode (Negative Prompt)"
+      }
+    },
+    "121": {
+      "inputs": {
+        "value": 1024
+      },
+      "class_type": "PrimitiveInt",
+      "_meta": {
+        "title": "Width"
+      }
+    },
+    "122": {
+      "inputs": {
+        "value": 1024
+      },
+      "class_type": "PrimitiveInt",
+      "_meta": {
+        "title": "Height"
+      }
+    },
+    "123": {
+      "inputs": {
+        "noise_seed": 518160660902944
+      },
+      "class_type": "RandomNoise",
+      "_meta": {
+        "title": "随机噪波"
+      }
+    },
+    "124": {
+      "inputs": {
+        "unet_name": "flux\\flux-2-klein-9b-fp8.safetensors",
+        "weight_dtype": "fp8_e4m3fn"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "UNet加载器"
+      }
+    },
+    "125": {
+      "inputs": {
+        "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+        "type": "flux2",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "加载CLIP"
+      }
+    },
+    "126": {
+      "inputs": {
+        "vae_name": "full_encoder_small_decoder.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "加载VAE"
+      }
+    },
+    "127": {
+      "inputs": {
+        "text": "一只小狗在水面上奔跑",
+        "clip": [
+          "125",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP Text Encode (Positive Prompt)"
+      }
+    }
+  },
+  "params": [
+    {
+      "key": "value_121",
+      "label": "Width",
+      "type": "number",
+      "default": 1024,
+      "bindings": [
+        {
+          "node_id": "121",
+          "input_name": "value"
+        }
+      ]
+    },
+    {
+      "key": "value_122",
+      "label": "Height",
+      "type": "number",
+      "default": 1024,
+      "bindings": [
+        {
+          "node_id": "122",
+          "input_name": "value"
+        }
+      ]
+    },
+    {
+      "key": "prompt",
+      "label": "提示词",
+      "type": "text",
+      "default": "一只小狗在水面上奔跑",
+      "bindings": [
+        {
+          "node_id": "127",
+          "input_name": "text"
+        }
+      ]
+    }
+  ],
+  "publish_meta": {
+    "source": "main_ui",
+    "node_count": 15,
+    "selected_param_count": 3
+  },
+  "validation_snapshot": {
+    "ok": true,
+    "output_count": 1,
+    "outputs": [
+      "9"
+    ],
+    "node_count": 15,
+    "node_errors": {}
+  },
+  "studio_modes": [
+    "t2i"
+  ]
+}
