@@ -74,8 +74,9 @@ body {
 }
 
 .vue-flow__handle {
-  width: 10px;
-  height: 10px;
+  width: 16px !important;
+  height: 16px !important;
   background-color: var(--accent-color) !important;
-  border: 2px solid var(--bg-secondary);
+  border: 2px solid var(--bg-secondary) !important;
+  border-radius: 100%;
 }

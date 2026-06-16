@@ -10,6 +10,12 @@ import { IMAGE_MODELS, VIDEO_MODELS, CHAT_MODELS, DEFAULT_IMAGE_MODEL, DEFAULT_V
 let nodeId = 0
 const getNodeId = () => `node_${nodeId++}`
 
+export const PREVIEW_NODE_ID = '__pending_connect_node__'
+export const PREVIEW_EDGE_ID = '__pending_connect_edge__'
+
+const isPreviewNode = (node) => node?.id === PREVIEW_NODE_ID || node?.type === 'previewAnchor'
+const isPreviewEdge = (edge) => edge?.id === PREVIEW_EDGE_ID
+
 // Current project ID | 当前项目ID
 export const currentProjectId = ref(null)
 
@@ -551,8 +557,8 @@ export const loadProject = (projectId) => {
 export const saveProject = () => {
   if (!currentProjectId.value) return
   updateProjectCanvas(currentProjectId.value, {
-    nodes: nodes.value,
-    edges: edges.value,
+    nodes: nodes.value.filter((node) => !isPreviewNode(node)),
+    edges: edges.value.filter((edge) => !isPreviewEdge(edge)),
     viewport: canvasViewport.value
   })
 }

@@ -249,12 +249,16 @@
           <button type="button" class="studio-login-modal__close" id="btnCloseStudioLogin" aria-label="关闭">×</button>
         </header>
         <div class="studio-login-modal__body">
-          <p class="studio-login-modal__hint">登录后，你的对话记录和任务队列将与其他用户分开保存。密码保存在服务器，关闭浏览器后需重新登录。</p>
+          <p class="studio-login-modal__hint">登录后，你的对话记录和任务队列将与其他用户分开保存。勾选「记住密码」后，下次打开将自动填入账号并保持登录状态（最长 24 小时）。</p>
           <form id="studioLoginForm" autocomplete="on" novalidate>
             <label class="studio-login-modal__label" for="studioLoginUsername">用户名</label>
             <input id="studioLoginUsername" class="studio-login-modal__input" name="username" type="text" maxlength="32" autocomplete="username" placeholder="请输入用户名，例如：paj" />
             <label class="studio-login-modal__label" for="studioLoginPassword">密码</label>
             <input id="studioLoginPassword" class="studio-login-modal__input" name="password" type="password" maxlength="64" autocomplete="current-password" placeholder="请输入密码" />
+            <label class="studio-login-modal__remember" for="studioLoginRemember">
+              <input id="studioLoginRemember" type="checkbox" name="remember" />
+              <span>记住密码</span>
+            </label>
             <div class="studio-login-modal__actions">
               <button type="button" class="studio-login-modal__btn studio-login-modal__btn--primary" id="btnConfirmStudioLogin">确认登录</button>
             </div>
