@@ -60,6 +60,7 @@
   const btnConfirmStudioLogin = $("btnConfirmStudioLogin");
   const studioLoginNewName = $("studioLoginNewName");
   const studioLoginPassword = $("studioLoginPassword");
+  const studioLoginRemember = $("studioLoginRemember");
   const studioLoginNewPassword = $("studioLoginNewPassword");
   const studioLoginConfirmPassword = $("studioLoginConfirmPassword");
   const btnRegisterStudioLogin = $("btnRegisterStudioLogin");
@@ -905,6 +906,41 @@
     } catch {
       // Ignore storage failures.
     }
+    window.RhStudioAuth?.clearPersistentSession?.();
+  }
+
+  function applyStudioLoginRememberState() {
+    const remember = window.RhStudioAuth?.isRememberLoginEnabled?.() ?? false;
+    if (studioLoginRemember) studioLoginRemember.checked = remember;
+    if (!remember) return;
+    const saved = window.RhStudioAuth?.loadSavedCredentials?.();
+    if (saved?.username && studioLoginUsername) {
+      studioLoginUsername.value = saved.username;
+    }
+    if (saved?.password && studioLoginPassword) {
+      studioLoginPassword.value = saved.password;
+    }
+  }
+
+  function isStudioLoginRememberRequested() {
+    if (isStudioLoginModalOpen()) {
+      return Boolean(studioLoginRemember?.checked);
+    }
+    return window.RhStudioAuth?.isRememberLoginEnabled?.() ?? false;
+  }
+
+  function syncStudioLoginRememberUi() {
+    if (studioLoginRemember) {
+      studioLoginRemember.checked = window.RhStudioAuth?.isRememberLoginEnabled?.() ?? false;
+    }
+  }
+
+  function clearStudioLoginFields() {
+    const remember = window.RhStudioAuth?.isRememberLoginEnabled?.() ?? false;
+    if (studioLoginPassword && !remember) studioLoginPassword.value = "";
+    if (studioLoginNewName) studioLoginNewName.value = "";
+    if (studioLoginNewPassword) studioLoginNewPassword.value = "";
+    if (studioLoginConfirmPassword) studioLoginConfirmPassword.value = "";
   }
 
   function validateStudioPassword(password, label = "密码") {
@@ -913,13 +949,6 @@
       return `${label}至少 ${STUDIO_MIN_PASSWORD_LENGTH} 位`;
     }
     return "";
-  }
-
-  function clearStudioLoginFields() {
-    if (studioLoginPassword) studioLoginPassword.value = "";
-    if (studioLoginNewName) studioLoginNewName.value = "";
-    if (studioLoginNewPassword) studioLoginNewPassword.value = "";
-    if (studioLoginConfirmPassword) studioLoginConfirmPassword.value = "";
   }
 
   function getStudioUserDisplayName() {
@@ -1024,6 +1053,7 @@
     }
     clearStudioUserAuth();
     updateStudioUserUi();
+    syncStudioLoginRememberUi();
     window.RhStudioAuth?.notifyAuthChange?.();
     if (typeof window.$message?.success === "function") {
       window.$message.success("已退出登录");
@@ -1042,6 +1072,7 @@
     if (studioLoginUsername) {
       studioLoginUsername.value = getStudioUserDisplayName();
     }
+    applyStudioLoginRememberState();
     studioLoginModal.classList.remove("is-hidden");
     document.body.classList.add("studio-login-open");
 
@@ -1072,21 +1103,22 @@
     window.$message?.warning?.("请先登录后再进入");
   }
 
-  async function loginStudioUser(usernameOrId, password) {
+  async function loginStudioUser(usernameOrId, password, options = {}) {
+    const silent = Boolean(options.silent);
     const id = resolveStudioUserId(usernameOrId);
     const pwd = String(password || "");
     const pwdErr = validateStudioPassword(pwd);
     if (!String(usernameOrId || "").trim()) {
-      window.alert("请输入用户名");
-      return;
+      if (!silent) window.alert("请输入用户名");
+      return false;
     }
     if (!id) {
-      window.alert("找不到该用户名，请检查输入或先注册");
-      return;
+      if (!silent) window.alert("找不到该用户名，请检查输入或先注册");
+      return false;
     }
     if (pwdErr) {
-      window.alert(pwdErr);
-      return;
+      if (!silent) window.alert(pwdErr);
+      return false;
     }
     try {
       const data = await requestJson("/rh/api/studio/auth/login", {
@@ -1099,15 +1131,25 @@
       }
       setStudioSessionToken(data?.session_token || "");
       markStudioUserAuthed(id);
+      const remember = isStudioLoginRememberRequested();
+      window.RhStudioAuth?.applyRememberLogin?.({
+        remember,
+        username: String(studioLoginUsername?.value || usernameOrId || "").trim(),
+        password: pwd,
+        token: data?.session_token || "",
+        userId: id,
+      });
       syncComfyUserIdentity(id, studioUsersMap[id] || id);
       updateStudioUserUi();
       window.RhStudioAuth?.notifyAuthChange?.();
       closeStudioLoginModal();
-      if (data?.first_time_setup) {
+      if (data?.first_time_setup && !silent) {
         window.alert("首次登录，密码已设置成功");
       }
+      return true;
     } catch (err) {
-      window.alert(err?.message || "登录失败");
+      if (!silent) window.alert(err?.message || "登录失败");
+      return false;
     }
   }
 
@@ -1170,6 +1212,14 @@
       await switchStudioUser(id);
       setStudioSessionToken(data?.session_token || "");
       markStudioUserAuthed(id);
+      const remember = isStudioLoginRememberRequested();
+      window.RhStudioAuth?.applyRememberLogin?.({
+        remember,
+        username: name,
+        password: pwd,
+        token: data?.session_token || "",
+        userId: id,
+      });
       syncComfyUserIdentity(id, name);
       updateStudioUserUi();
       window.RhStudioAuth?.notifyAuthChange?.();
@@ -1200,8 +1250,20 @@
     }
     ownedPromptIds = loadOwnedPromptIds();
     syncComfyUserIdentity(studioUserId, getStudioUserDisplayName());
+    syncStudioLoginRememberUi();
     updateStudioUserUi();
-    await validateStudioSessionOnInit();
+    const sessionValid = await validateStudioSessionOnInit();
+    if (!sessionValid) {
+      await tryAutoLoginWithSavedCredentials();
+    }
+  }
+
+  async function tryAutoLoginWithSavedCredentials() {
+    if (!studioMultiUserEnabled || isStudioUserAuthed()) return;
+    if (!window.RhStudioAuth?.isRememberLoginEnabled?.()) return;
+    const saved = window.RhStudioAuth?.loadSavedCredentials?.();
+    if (!saved?.username || !saved?.password) return;
+    await loginStudioUser(saved.username, saved.password, { silent: true });
   }
 
   function bindStudioUserControls() {

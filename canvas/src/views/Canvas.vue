@@ -47,11 +47,17 @@
         :zoom-on-double-click="false"
         :snap-to-grid="true"
         :snap-grid="[20, 20]"
-        :elements-selectable="false"
+        :elements-selectable="true"
+        :select-nodes-on-drag="true"
+        :selection-key-code="true"
+        :pan-on-drag="[1, 2]"
         :is-valid-connection="isValidConnection"
         @connect="onConnect"
+        @connect-start="onConnectStart"
+        @connect-end="onConnectEnd"
         @edge-click="onEdgeClick"
         @node-click="onNodeClick"
+        @selection-end="onSelectionEnd"
         @pane-click="onPaneClick"
         @viewport-change="handleViewportChange"
         @edges-change="onEdgesChange"
@@ -117,7 +123,7 @@
         :style="menuStyle"
       >
         <button 
-          v-for="nodeType in nodeTypeOptions" 
+          v-for="nodeType in activeMenuOptions" 
           :key="nodeType.type"
           @click="addNewNode(nodeType.type)"
           class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors text-left"
@@ -183,7 +189,7 @@ import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 import { NIcon, NDropdown, NModal, NInput, NButton } from 'naive-ui'
 import { ChevronBackOutline, ChevronDownOutline, AddOutline, ImageOutline, TextOutline, VideocamOutline, ColorPaletteOutline, ArrowUndoOutline, ArrowRedoOutline, GridOutline, LocateOutline, RemoveOutline, DownloadOutline, AppsOutline, ChatbubbleOutline, GitNetworkOutline, MapOutline } from '@vicons/ionicons5'
-import { nodes, edges, addNode, addNodes, addEdge, addEdges, removeNode, updateNode, getNodeRight, getNodeBottom, initSampleData, loadProject, saveProject, clearCanvas, canvasViewport, updateViewport, undo, redo, canUndo, canRedo, manualSaveHistory, startBatchOperation, endBatchOperation } from '../stores/canvas'
+import { nodes, edges, addNode, addNodes, addEdge, addEdges, removeNode, updateNode, getNodeRight, getNodeBottom, initSampleData, loadProject, saveProject, clearCanvas, canvasViewport, updateViewport, undo, redo, canUndo, canRedo, manualSaveHistory, startBatchOperation, endBatchOperation, PREVIEW_NODE_ID, PREVIEW_EDGE_ID } from '../stores/canvas'
 import { loadAllModels } from '../stores/models'
 import { projects, initProjectsStore, updateProject, renameProject, currentProject } from '../stores/projects'
 import DownloadModal from '../components/DownloadModal.vue'
@@ -203,6 +209,7 @@ import PromptOrderEdge from '@/components/edges/PromptOrderEdge.vue'
 import ImageOrderEdge from '@/components/edges/ImageOrderEdge.vue'
 import DefaultFlowEdge from '@/components/edges/DefaultFlowEdge.vue'
 import VirtualImagePanel from '@/components/VirtualImagePanel.vue'
+import PreviewAnchorNode from '@/components/nodes/PreviewAnchorNode.vue'
 import { isDark } from '../stores/theme'
 
 const MINIMAP_STORAGE_KEY = 'canvas-show-minimap'
@@ -211,7 +218,58 @@ onMounted(() => { loadAllModels() })
 
 const router = useRouter()
 const route = useRoute()
-const { viewport, zoomIn, zoomOut, fitView, setCenter, updateNodeInternals } = useVueFlow()
+const { viewport, zoomIn, zoomOut, fitView, setCenter, updateNodeInternals, screenToFlowCoordinate } = useVueFlow()
+
+const clearPreviewConnection = () => {
+  edges.value = edges.value.filter((edge) => edge.id !== PREVIEW_EDGE_ID)
+  nodes.value = nodes.value.filter((node) => node.id !== PREVIEW_NODE_ID)
+}
+
+const showPreviewConnection = (connectFrom, flowPos) => {
+  clearPreviewConnection()
+
+  nodes.value = [
+    ...nodes.value,
+    {
+      id: PREVIEW_NODE_ID,
+      type: 'previewAnchor',
+      position: { x: flowPos.x, y: flowPos.y - 8 },
+      width: 16,
+      height: 16,
+      data: {},
+      draggable: false,
+      selectable: false,
+      connectable: true,
+    },
+  ]
+
+  const edgeParams = connectFrom.handleType === 'source'
+    ? {
+        source: connectFrom.nodeId,
+        target: PREVIEW_NODE_ID,
+        sourceHandle: connectFrom.handleId || 'right',
+        targetHandle: 'left',
+      }
+    : {
+        source: PREVIEW_NODE_ID,
+        target: connectFrom.nodeId,
+        sourceHandle: 'right',
+        targetHandle: connectFrom.handleId || 'left',
+      }
+
+  edges.value = [
+    ...edges.value,
+    {
+      id: PREVIEW_EDGE_ID,
+      ...edgeParams,
+      type: 'default',
+    },
+  ]
+
+  nextTick(() => {
+    updateNodeInternals([connectFrom.nodeId, PREVIEW_NODE_ID])
+  })
+}
 
 const onNodeDragStop = ({ node }) => {}
 
@@ -242,6 +300,21 @@ const onNodeClick = ({ node, event }) => {
   applyNodeSelection(node.id, { append: event.shiftKey })
 }
 
+const onSelectionEnd = () => {
+  nodes.value = nodes.value.map((n) => {
+    if (n.id === PREVIEW_NODE_ID) {
+      return { ...n, selected: false, data: { ...n.data, selected: false } }
+    }
+    const isSelected = !!n.selected
+    if (!!n.data?.selected === isSelected) return n
+    return {
+      ...n,
+      selected: isSelected,
+      data: { ...n.data, selected: isSelected },
+    }
+  })
+}
+
 const baseNodeTypes = {
   text: markRaw(TextNode),
   imageConfig: markRaw(ImageConfigNode),
@@ -258,6 +331,7 @@ const portalNodeTypes = {
 const nodeTypes = {
   ...baseNodeTypes,
   ...portalNodeTypes,
+  previewAnchor: markRaw(PreviewAnchorNode),
 }
 const edgeTypes = {
   default: markRaw(DefaultFlowEdge),
@@ -270,6 +344,9 @@ const showNodeMenu = ref(false)
 const canvasContainer = ref(null)
 const dblClickFlowPos = ref(null)
 const menuScreenPos = ref(null)
+const pendingConnection = ref(null)
+const connectionMade = ref(false)
+const suppressNextPaneClick = ref(false)
 const isMobile = ref(false)
 const showGrid = ref(false)
 const flowKey = ref(Date.now())
@@ -319,6 +396,37 @@ const nodeTypeOptions = computed(() => [
   ...baseNodeTypeOptions,
   ...portalNodeTypeOptions,
 ])
+
+const CONNECT_TARGET_TYPES = {
+  text: ['imageConfig', 'videoConfig', 'llmConfig', 'text'],
+  image: ['text', 'imageConfig', 'videoConfig', 'image'],
+  video: ['text', 'videoConfig', 'video'],
+  imageConfig: ['image', 'text'],
+  videoConfig: ['video', 'text'],
+  llmConfig: ['imageConfig', 'videoConfig', 'text'],
+  portalComfyConfig: ['text', 'image'],
+  portalImageConfig: ['image', 'text'],
+  portalVideoConfig: ['video', 'text'],
+}
+
+const activeMenuOptions = computed(() => {
+  if (!pendingConnection.value) return nodeTypeOptions.value
+  const srcNode = nodes.value.find((n) => n.id === pendingConnection.value.nodeId)
+  const allowed = CONNECT_TARGET_TYPES[srcNode?.type]
+  if (!allowed) return nodeTypeOptions.value
+  return nodeTypeOptions.value.filter((opt) => allowed.includes(opt.type))
+})
+
+const getDefaultNodeData = (type) => {
+  const defaults = {
+    text: { content: '', label: '文本输入' },
+    imageConfig: { model: 'doubao-seedream-4-5-251128', size: '2048x2048', label: '文生图' },
+    videoConfig: { label: '视频生成' },
+    llmConfig: { label: 'LLM文本生成' },
+    portalComfyConfig: { label: 'ComfyUI' },
+  }
+  return defaults[type] || {}
+}
 const menuStyle = computed(() => {
   if (!menuScreenPos.value) return { left: '80px', top: '50%', transform: 'translateY(-50%)' }
   const { x, y } = menuScreenPos.value
@@ -394,12 +502,31 @@ const panToNodes = (nodeIds, options = {}) => {
 
 const addNewNode = async (type) => {
   const pos = dblClickFlowPos.value || getHorizontalPosition(1)[0]
+  const connectFrom = pendingConnection.value
+  clearPreviewConnection()
   dblClickFlowPos.value = null
   menuScreenPos.value = null
-  const defaultData = type === 'portalComfyConfig' ? { label: 'ComfyUI' } : {}
-  const nodeId = addNode(type, pos, defaultData)
+  pendingConnection.value = null
+  const nodeId = addNode(type, pos, getDefaultNodeData(type))
   const maxZIndex = Math.max(0, ...nodes.value.map(n => n.zIndex || 0))
   updateNode(nodeId, { zIndex: maxZIndex + 1 })
+  if (connectFrom) {
+    if (connectFrom.handleType === 'source') {
+      onConnect({
+        source: connectFrom.nodeId,
+        target: nodeId,
+        sourceHandle: connectFrom.handleId || 'right',
+        targetHandle: 'left',
+      })
+    } else {
+      onConnect({
+        source: nodeId,
+        target: connectFrom.nodeId,
+        sourceHandle: 'right',
+        targetHandle: connectFrom.handleId || 'left',
+      })
+    }
+  }
   setTimeout(() => updateNodeInternals(nodeId), 50)
   showNodeMenu.value = false
   setTimeout(() => panToNodes([nodeId], { duration: 300 }), 150)
@@ -582,7 +709,42 @@ const isValidConnection = (connection) => {
   return connection.sourceHandle === 'right' && connection.targetHandle === 'left'
 }
 
+const onConnectStart = ({ nodeId, handleId, handleType }) => {
+  connectionMade.value = false
+  pendingConnection.value = { nodeId, handleId, handleType }
+}
+
+const onConnectEnd = (event) => {
+  if (connectionMade.value) {
+    pendingConnection.value = null
+    return
+  }
+  if (!pendingConnection.value || !event || !('clientX' in event)) {
+    pendingConnection.value = null
+    return
+  }
+  if (event.target instanceof Element && event.target.closest('.vue-flow__handle')) {
+    pendingConnection.value = null
+    return
+  }
+
+  const flowPos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+  dblClickFlowPos.value = { x: Math.round(flowPos.x), y: Math.round(flowPos.y) }
+  menuScreenPos.value = { x: event.clientX, y: event.clientY }
+  showPreviewConnection(pendingConnection.value, dblClickFlowPos.value)
+  suppressNextPaneClick.value = true
+  nextTick(() => {
+    showNodeMenu.value = true
+    nextTick(() => {
+      suppressNextPaneClick.value = false
+    })
+  })
+}
+
 const onConnect = (params) => {
+  connectionMade.value = true
+  clearPreviewConnection()
+  pendingConnection.value = null
   if (!isValidConnection(params)) {
     nextTick(() => {
       edges.value = edges.value.filter(e =>
@@ -680,15 +842,28 @@ const toggleNodeMenu = () => {
   if (showNodeMenu.value) {
     showNodeMenu.value = false
     menuScreenPos.value = null
+    dblClickFlowPos.value = null
+    pendingConnection.value = null
+    clearPreviewConnection()
   } else {
     menuScreenPos.value = null
+    dblClickFlowPos.value = null
+    pendingConnection.value = null
+    clearPreviewConnection()
     showNodeMenu.value = true
   }
 }
 
 const onPaneClick = () => {
+  if (suppressNextPaneClick.value) {
+    suppressNextPaneClick.value = false
+    return
+  }
   showNodeMenu.value = false
   menuScreenPos.value = null
+  dblClickFlowPos.value = null
+  pendingConnection.value = null
+  clearPreviewConnection()
   clearNodeSelection()
 }
 
@@ -737,6 +912,14 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile); saveProje
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
 @import '@vue-flow/minimap/dist/style.css';
+
+/* theme-default sets handles to 6px; override after import */
+.vue-flow__handle {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 100%;
+}
+
 .canvas-flow { width: 100%; height: 100%; }
 
 /* Selection ring follows the inner card border, not an oversized vue-flow box */
@@ -753,10 +936,16 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile); saveProje
 .vue-flow__node-videoConfig,
 .vue-flow__node-portalComfyConfig,
 .vue-flow__node-portalImageConfig,
-.vue-flow__node-portalVideoConfig {
+.vue-flow__node-portalVideoConfig,
+.vue-flow__node-previewAnchor {
   height: auto !important;
   width: auto !important;
   overflow: visible !important;
+}
+
+.vue-flow__node-previewAnchor {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .text-node-wrapper,

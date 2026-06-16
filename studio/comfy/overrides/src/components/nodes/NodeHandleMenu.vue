@@ -1,6 +1,6 @@
 <template>
   <div class="cs-nhm-anchor">
-    <Handle type="source" :position="Position.Right" id="right" style="width: 12px; height: 12px;" />
+    <Handle type="source" :position="Position.Right" id="right" class="cs-nhm-handle" />
 
     <div
       v-if="showHandleHoverZone"
@@ -95,6 +95,11 @@ const handleCreate = (item) => {
 </script>
 
 <style>
+.cs-nhm-handle {
+  width: 16px !important;
+  height: 16px !important;
+}
+
 .cs-nhm-anchor {
   position: absolute;
   right: 0;
