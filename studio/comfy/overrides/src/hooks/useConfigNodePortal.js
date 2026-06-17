@@ -2,7 +2,7 @@
  * Shared portal workflow integration for image/video config nodes.
  */
 import { ref, computed, onMounted, watch } from 'vue'
-import { updateNode } from '@/stores/canvas'
+import { updateNode, currentProjectId } from '@/stores/canvas'
 import {
   runPortalWorkflow,
   cancelPortalWorkflow,
@@ -362,6 +362,8 @@ export function useConfigNodePortal(props, {
         timeoutSec,
         signal: abortController.value.signal,
         isCancelled: () => cancelledByUser.value,
+        canvasId: currentProjectId.value || '',
+        source: 'canvas',
         onPromptQueued: (promptId) => {
           activePromptId.value = promptId
         },

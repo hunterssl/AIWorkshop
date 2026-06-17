@@ -9,14 +9,19 @@
     </div>
 
     <!-- Right section | 右侧区域 -->
-    <div class="flex items-center gap-4">
+    <div class="rh-header-actions">
       <!-- Center slot | 中间插槽 -->
       <slot name="center"></slot>
 
+      <StudioUserBadge />
+
       <!-- Theme toggle | 主题切换 -->
       <button
+        type="button"
         @click="toggleTheme"
-        class="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors"
+        class="rh-header-icon-btn"
+        :aria-label="isDark ? '切换到亮色模式' : '切换到暗色模式'"
+        :title="isDark ? '亮色模式' : '暗色模式'"
       >
         <n-icon :size="20">
           <SunnyOutline v-if="isDark" />
@@ -37,4 +42,5 @@
 import { NIcon } from 'naive-ui'
 import { SunnyOutline, MoonOutline } from '@vicons/ionicons5'
 import { isDark, toggleTheme } from '../stores/theme'
+import StudioUserBadge from './StudioUserBadge.vue'
 </script>

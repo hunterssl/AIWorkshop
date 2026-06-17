@@ -8,6 +8,20 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+async function readJsonResponse(res) {
+  const text = await res.text()
+  if (!text) {
+    if (res.status === 401) throw new Error('请先登录后再运行任务（请先在创作工坊登录）')
+    if (res.status === 403) throw new Error('请求被 ComfyUI 拒绝，请用 http://127.0.0.1:8188/rh/canvas2 访问，或重启 npm run dev')
+    throw new Error(`服务器无响应 (${res.status})，请确认 ComfyUI 已在 8188 端口运行`)
+  }
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(`服务器响应异常 (${res.status})`)
+  }
+}
+
 export function isStudioPublishedApp(app) {
   const modes = Array.isArray(app?.studio_modes) ? app.studio_modes : []
   return modes.some((mode) => STUDIO_MODE_KEYS.has(mode))
@@ -15,7 +29,7 @@ export function isStudioPublishedApp(app) {
 
 export async function listPortalApps({ studioOnly = false } = {}) {
   const res = await fetch('/rh/api/apps', { cache: 'no-store' })
-  const data = await res.json()
+  const data = await readJsonResponse(res)
   if (!res.ok) {
     throw new Error(data?.error || '加载工作流列表失败')
   }
@@ -25,7 +39,7 @@ export async function listPortalApps({ studioOnly = false } = {}) {
 
 export async function getPortalApp(appId) {
   const res = await fetch(`/rh/api/apps/${encodeURIComponent(appId)}`, { cache: 'no-store' })
-  const data = await res.json()
+  const data = await readJsonResponse(res)
   if (!res.ok) {
     throw new Error(data?.error || '加载工作流详情失败')
   }
@@ -109,11 +123,14 @@ export async function runPortalWorkflow(appId, params = {}, options = {}) {
       negative_prompt: options.negativePrompt,
       wait: false,
       timeout_sec: timeoutSec,
-      client_id: options.clientId || 'canvas',
+      client_id: options.clientId || 'huobao-canvas',
+      source: options.source || 'canvas',
+      canvas_id: options.canvasId || '',
+      title: options.prompt || options.title || '',
     }),
     signal: options.signal,
   })
-  const data = await res.json()
+  const data = await readJsonResponse(res)
   if (!res.ok) {
     throw new Error(data?.error || data?.message || '工作流执行失败')
   }
@@ -141,7 +158,7 @@ export async function pollPortalResult(promptId, timeoutSec = 600, options = {})
       cache: 'no-store',
       signal: options.signal,
     })
-    const data = await res.json()
+    const data = await readJsonResponse(res)
 
     if (options.signal?.aborted || options.isCancelled?.()) {
       throw new PortalWorkflowAbortError()
@@ -186,7 +203,7 @@ export async function uploadPortalImage(source) {
     method: 'POST',
     body: formData,
   })
-  const data = await response.json()
+  const data = await readJsonResponse(response)
   if (!response.ok) {
     throw new Error(data?.error || '参考图上传失败')
   }

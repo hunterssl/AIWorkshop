@@ -590,21 +590,26 @@ const createdImageNodeId = ref(null)
 
 // Find connected output image node | 查找已连接的输出图片节点
 const findConnectedOutputImageNode = (onlyEmpty = true) => {
-  // Find edges where this node is the source | 查找以当前节点为源的边
   const outputEdges = edges.value.filter(e => e.source === props.id)
-  
-  for (const edge of outputEdges) {
-    const targetNode = nodes.value.find(n => n.id === edge.target)
-    if (targetNode?.type === 'image') {
-      if (onlyEmpty) {
-        // Check if target is an image node with empty or no url | 检查目标是否为空白图片节点
-        if (!targetNode.data?.url || targetNode.data?.url === '') {
-          return targetNode.id
-        }
-      } else {
-        // Return any connected image node | 返回任意连接的图片节点
+  const connectedImages = outputEdges
+    .map((edge) => nodes.value.find((n) => n.id === edge.target))
+    .filter((node) => node?.type === 'image')
+
+  // 优先使用用户当前选中的结果节点（单选）
+  const selectedTarget = connectedImages.find((node) => node.data?.selected)
+  if (selectedTarget) {
+    if (!onlyEmpty || !selectedTarget.data?.url || selectedTarget.data.url === '') {
+      return selectedTarget.id
+    }
+  }
+
+  for (const targetNode of connectedImages) {
+    if (onlyEmpty) {
+      if (!targetNode.data?.url || targetNode.data?.url === '') {
         return targetNode.id
       }
+    } else {
+      return targetNode.id
     }
   }
   return null

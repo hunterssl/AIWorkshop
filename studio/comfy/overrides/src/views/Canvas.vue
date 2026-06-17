@@ -1,6 +1,6 @@
 <template>
   <!-- Canvas page | 画布页面 -->
-  <div class="h-screen w-screen flex flex-col bg-[var(--bg-primary)]">
+  <div class="studio-canvas-page h-screen w-screen flex flex-col">
     <!-- Header | 顶部导航 -->
     <AppHeader class="bg-[var(--bg-secondary)]">
       <template #left>
@@ -19,18 +19,22 @@
       </template>
       <template #right>
         <button 
+          type="button"
           @click="showDownloadModal = true"
-          class="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors"
-          :class="{ 'text-[var(--accent-color)]': hasDownloadableAssets }"
+          class="rh-header-icon-btn"
+          :class="{ 'is-active': hasDownloadableAssets }"
           title="批量下载素材"
+          aria-label="批量下载素材"
         >
           <n-icon :size="20"><DownloadOutline /></n-icon>
         </button>
-        <button 
+        <button
+          type="button"
           @click="showApiSettings = true"
-          class="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors"
-          :class="{ 'text-[var(--accent-color)]': isApiConfigured }"
+          class="rh-header-icon-btn"
+          :class="{ 'is-active': isApiConfigured }"
           title="API 设置"
+          aria-label="API 设置"
         >
           <n-icon :size="20"><SettingsOutline /></n-icon>
         </button>
@@ -53,10 +57,17 @@
         :zoom-on-double-click="false"
         :snap-to-grid="true"
         :snap-grid="[20, 20]"
+        :elements-selectable="true"
+        :select-nodes-on-drag="true"
+        :selection-key-code="true"
+        :pan-on-drag="[1, 2]"
         :is-valid-connection="isValidConnection"
         @connect="onConnect"
+        @connect-start="onConnectStart"
+        @connect-end="onConnectEnd"
         @edge-click="onEdgeClick"
         @node-click="onNodeClick"
+        @selection-end="onSelectionEnd"
         @pane-click="onPaneClick"
         @viewport-change="handleViewportChange"
         @edges-change="onEdgesChange"
@@ -65,11 +76,17 @@
         class="canvas-flow"
       >
         <Background v-if="showGrid" :gap="20" :size="1" />
-        <MiniMap 
-          v-if="!isMobile"
+        <MiniMap
+          v-if="!isMobile && showMiniMap"
           position="bottom-right"
           :pannable="true"
           :zoomable="true"
+          :node-color="miniMapNodeColor"
+          :node-stroke-color="miniMapNodeStrokeColor"
+          :mask-color="miniMapMaskColor"
+          :mask-stroke-color="miniMapMaskStrokeColor"
+          :mask-stroke-width="miniMapMaskStrokeWidth"
+          class="canvas-minimap"
         />
       </VueFlow>
 
@@ -116,7 +133,7 @@
         :style="menuStyle"
       >
         <button 
-          v-for="nodeType in nodeTypeOptions" 
+          v-for="nodeType in activeMenuOptions" 
           :key="nodeType.type"
           @click="addNewNode(nodeType.type)"
           class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors text-left"
@@ -127,7 +144,7 @@
       </div>
 
       <!-- Bottom controls | 底部控制 -->
-      <div class="absolute bottom-4 left-4 flex items-center gap-2 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] p-1">
+      <div class="absolute bottom-4 left-4 flex items-center gap-1 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] p-1">
         <button 
           @click="fitView({ padding: 0.2 })" 
           class="p-2 hover:bg-[var(--bg-tertiary)] rounded transition-colors"
@@ -135,6 +152,7 @@
         >
           <n-icon :size="16"><LocateOutline /></n-icon>
         </button>
+        <div class="w-px h-6 bg-[var(--border-color)]"></div>
         <div class="flex items-center gap-1 px-2">
           <button @click="zoomOut" class="p-1 hover:bg-[var(--bg-tertiary)] rounded transition-colors">
             <n-icon :size="14"><RemoveOutline /></n-icon>
@@ -144,10 +162,21 @@
             <n-icon :size="14"><AddOutline /></n-icon>
           </button>
         </div>
+        <template v-if="!isMobile">
+          <div class="w-px h-6 bg-[var(--border-color)]"></div>
+          <button
+            type="button"
+            class="p-2 rounded transition-colors hover:bg-[var(--bg-tertiary)]"
+            :class="{ 'text-[var(--accent-color)] bg-[var(--bg-tertiary)]': showMiniMap }"
+            :title="showMiniMap ? '隐藏小地图' : '显示小地图'"
+            @click="toggleMiniMap"
+          >
+            <n-icon :size="16"><MapOutline /></n-icon>
+          </button>
+        </template>
       </div>
     </div>
 
-    <ApiSettings v-model:show="showApiSettings" />
     <n-modal v-model:show="showRenameModal" preset="dialog" title="重命名项目">
       <n-input v-model:value="renameValue" placeholder="请输入项目名称" />
       <template #action><n-button @click="showRenameModal = false">取消</n-button><n-button type="primary" @click="confirmRename">确定</n-button></template>
@@ -156,6 +185,7 @@
       <p>确定要删除项目「{{ projectName }}」吗？此操作不可恢复。</p>
       <template #action><n-button @click="showDeleteModal = false">取消</n-button><n-button type="error" @click="confirmDelete">删除</n-button></template>
     </n-modal>
+    <ApiSettings v-model:show="showApiSettings" />
     <DownloadModal v-model:show="showDownloadModal" />
     <WorkflowPanel v-model:show="showWorkflowPanel" @add-workflow="handleAddWorkflow" @add-portal-app="handleAddPortalApp" />
     <VirtualImagePanel v-model:show="showVirtualImagePanel" @add-virtualimage="handleAddVirtualimage" @add-virtualimages="handleAddVirtualimages" />
@@ -169,11 +199,11 @@ import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 import { NIcon, NDropdown, NModal, NInput, NButton } from 'naive-ui'
-import { ChevronBackOutline, ChevronDownOutline, SettingsOutline, AddOutline, ImageOutline, TextOutline, VideocamOutline, ColorPaletteOutline, ArrowUndoOutline, ArrowRedoOutline, GridOutline, LocateOutline, RemoveOutline, DownloadOutline, AppsOutline, ChatbubbleOutline, GitNetworkOutline } from '@vicons/ionicons5'
-import { nodes, edges, addNode, addNodes, addEdge, addEdges, removeNode, updateNode, getNodeRight, getNodeBottom, initSampleData, loadProject, saveProject, clearCanvas, canvasViewport, updateViewport, undo, redo, canUndo, canRedo, manualSaveHistory, startBatchOperation, endBatchOperation } from '../stores/canvas'
+import { ChevronBackOutline, ChevronDownOutline, SettingsOutline, AddOutline, ImageOutline, TextOutline, VideocamOutline, ColorPaletteOutline, ArrowUndoOutline, ArrowRedoOutline, GridOutline, LocateOutline, RemoveOutline, DownloadOutline, AppsOutline, ChatbubbleOutline, GitNetworkOutline, MapOutline } from '@vicons/ionicons5'
+import { nodes, edges, addNode, addNodes, addEdge, addEdges, removeNode, updateNode, getNodeRight, getNodeBottom, initSampleData, loadProject, saveProject, clearCanvas, canvasViewport, updateViewport, undo, redo, canUndo, canRedo, manualSaveHistory, startBatchOperation, endBatchOperation, PREVIEW_NODE_ID, PREVIEW_EDGE_ID } from '../stores/canvas'
 import { loadAllModels } from '../stores/models'
-import { useModelStore } from '../stores/pinia'
 import { projects, initProjectsStore, updateProject, renameProject, currentProject } from '../stores/projects'
+import { useModelStore } from '../stores/pinia'
 import ApiSettings from '../components/ApiSettings.vue'
 import DownloadModal from '../components/DownloadModal.vue'
 import { getPortalApp, resolvePortalAppNodeType } from '../api/portal'
@@ -190,25 +220,115 @@ import LLMConfigNode from '@/components/nodes/LLMConfigNode.vue'
 import ImageRoleEdge from '@/components/edges/ImageRoleEdge.vue'
 import PromptOrderEdge from '@/components/edges/PromptOrderEdge.vue'
 import ImageOrderEdge from '@/components/edges/ImageOrderEdge.vue'
+import DefaultFlowEdge from '@/components/edges/DefaultFlowEdge.vue'
 import VirtualImagePanel from '@/components/VirtualImagePanel.vue'
+import PreviewAnchorNode from '@/components/nodes/PreviewAnchorNode.vue'
+import { isDark } from '../stores/theme'
+
+const MINIMAP_STORAGE_KEY = 'canvas-show-minimap'
 
 const modelStore = useModelStore()
 const isApiConfigured = computed(() => !!modelStore.currentApiKey)
+
 onMounted(() => { loadAllModels() })
 
 const router = useRouter()
 const route = useRoute()
-const { viewport, zoomIn, zoomOut, fitView, setCenter, updateNodeInternals } = useVueFlow()
+const { viewport, zoomIn, zoomOut, fitView, setCenter, updateNodeInternals, screenToFlowCoordinate } = useVueFlow()
+
+const clearPreviewConnection = () => {
+  edges.value = edges.value.filter((edge) => edge.id !== PREVIEW_EDGE_ID)
+  nodes.value = nodes.value.filter((node) => node.id !== PREVIEW_NODE_ID)
+}
+
+const showPreviewConnection = (connectFrom, flowPos) => {
+  clearPreviewConnection()
+
+  nodes.value = [
+    ...nodes.value,
+    {
+      id: PREVIEW_NODE_ID,
+      type: 'previewAnchor',
+      position: { x: flowPos.x, y: flowPos.y - 8 },
+      width: 16,
+      height: 16,
+      data: {},
+      draggable: false,
+      selectable: false,
+      connectable: true,
+    },
+  ]
+
+  const edgeParams = connectFrom.handleType === 'source'
+    ? {
+        source: connectFrom.nodeId,
+        target: PREVIEW_NODE_ID,
+        sourceHandle: connectFrom.handleId || 'right',
+        targetHandle: 'left',
+      }
+    : {
+        source: PREVIEW_NODE_ID,
+        target: connectFrom.nodeId,
+        sourceHandle: 'right',
+        targetHandle: connectFrom.handleId || 'left',
+      }
+
+  edges.value = [
+    ...edges.value,
+    {
+      id: PREVIEW_EDGE_ID,
+      ...edgeParams,
+      type: 'default',
+    },
+  ]
+
+  nextTick(() => {
+    updateNodeInternals([connectFrom.nodeId, PREVIEW_NODE_ID])
+  })
+}
 
 const onNodeDragStop = ({ node }) => {}
+
+const applyNodeSelection = (targetId, { append = false } = {}) => {
+  nodes.value = nodes.value.map((n) => {
+    const shouldSelect = append ? !!(n.data?.selected || n.id === targetId) : n.id === targetId
+    if (n.selected === shouldSelect && !!n.data?.selected === shouldSelect) return n
+    return {
+      ...n,
+      selected: shouldSelect,
+      data: { ...n.data, selected: shouldSelect },
+    }
+  })
+}
+
+const clearNodeSelection = () => {
+  nodes.value = nodes.value.map((n) => {
+    if (!n.selected && !n.data?.selected) return n
+    return {
+      ...n,
+      selected: false,
+      data: { ...n.data, selected: false },
+    }
+  })
+}
+
 const onNodeClick = ({ node, event }) => {
-  if (event.shiftKey) {
-    // Shift+点击：追加选中
-    updateNode(node.id, { selected: true })
-  } else {
-    // 普通点击：切换选中
-    updateNode(node.id, { selected: !node.data?.selected })
-  }
+  applyNodeSelection(node.id, { append: event.shiftKey })
+}
+
+const onSelectionEnd = () => {
+  nodes.value = nodes.value.map((n) => {
+    if (n.id === PREVIEW_NODE_ID) {
+      return { ...n, selected: false, data: { ...n.data, selected: false } }
+    }
+    const isSelected = !!n.selected
+    if (!!n.data?.selected === isSelected) return n
+    return {
+      ...n,
+      selected: isSelected,
+      data: { ...n.data, selected: isSelected },
+    }
+  })
 }
 
 const baseNodeTypes = {
@@ -227,23 +347,44 @@ const portalNodeTypes = {
 const nodeTypes = {
   ...baseNodeTypes,
   ...portalNodeTypes,
+  previewAnchor: markRaw(PreviewAnchorNode),
 }
-const edgeTypes = { imageRole: markRaw(ImageRoleEdge), promptOrder: markRaw(PromptOrderEdge), imageOrder: markRaw(ImageOrderEdge) }
+const edgeTypes = {
+  default: markRaw(DefaultFlowEdge),
+  imageRole: markRaw(ImageRoleEdge),
+  promptOrder: markRaw(PromptOrderEdge),
+  imageOrder: markRaw(ImageOrderEdge),
+}
 
 const showNodeMenu = ref(false)
 const canvasContainer = ref(null)
 const dblClickFlowPos = ref(null)
 const menuScreenPos = ref(null)
+const pendingConnection = ref(null)
+const connectionMade = ref(false)
+const suppressNextPaneClick = ref(false)
 const isMobile = ref(false)
-const showGrid = ref(true)
-const showApiSettings = ref(false)
+const showGrid = ref(false)
 const flowKey = ref(Date.now())
 const showRenameModal = ref(false)
 const showDeleteModal = ref(false)
+const showApiSettings = ref(false)
 const showDownloadModal = ref(false)
 const showWorkflowPanel = ref(false)
 const showVirtualImagePanel = ref(false)
 const renameValue = ref('')
+const showMiniMap = ref(localStorage.getItem(MINIMAP_STORAGE_KEY) !== '0')
+
+const miniMapNodeColor = computed(() => (isDark.value ? '#475569' : '#cbd5e1'))
+const miniMapNodeStrokeColor = computed(() => (isDark.value ? '#94a3b8' : '#64748b'))
+const miniMapMaskColor = computed(() => (isDark.value ? 'rgba(2, 8, 23, 0.62)' : 'rgba(15, 23, 42, 0.28)'))
+const miniMapMaskStrokeColor = computed(() => (isDark.value ? '#7dd3fc' : '#7c3aed'))
+const miniMapMaskStrokeWidth = computed(() => (isDark.value ? 2.5 : 2))
+
+const toggleMiniMap = () => {
+  showMiniMap.value = !showMiniMap.value
+  localStorage.setItem(MINIMAP_STORAGE_KEY, showMiniMap.value ? '1' : '0')
+}
 
 const hasDownloadableAssets = computed(() => nodes.value.some(n => (n.type === 'image' || n.type === 'video') && n.data?.url))
 const projectName = computed(() => { const p = projects.value.find(p => p.id === route.params.id); return p?.name || '未命名项目' })
@@ -272,6 +413,37 @@ const nodeTypeOptions = computed(() => [
   ...baseNodeTypeOptions,
   ...portalNodeTypeOptions,
 ])
+
+const CONNECT_TARGET_TYPES = {
+  text: ['imageConfig', 'videoConfig', 'llmConfig', 'text'],
+  image: ['text', 'imageConfig', 'videoConfig', 'image'],
+  video: ['text', 'videoConfig', 'video'],
+  imageConfig: ['image', 'text'],
+  videoConfig: ['video', 'text'],
+  llmConfig: ['imageConfig', 'videoConfig', 'text'],
+  portalComfyConfig: ['text', 'image'],
+  portalImageConfig: ['image', 'text'],
+  portalVideoConfig: ['video', 'text'],
+}
+
+const activeMenuOptions = computed(() => {
+  if (!pendingConnection.value) return nodeTypeOptions.value
+  const srcNode = nodes.value.find((n) => n.id === pendingConnection.value.nodeId)
+  const allowed = CONNECT_TARGET_TYPES[srcNode?.type]
+  if (!allowed) return nodeTypeOptions.value
+  return nodeTypeOptions.value.filter((opt) => allowed.includes(opt.type))
+})
+
+const getDefaultNodeData = (type) => {
+  const defaults = {
+    text: { content: '', label: '文本输入' },
+    imageConfig: { model: 'doubao-seedream-4-5-251128', size: '2048x2048', label: '文生图' },
+    videoConfig: { label: '视频生成' },
+    llmConfig: { label: 'LLM文本生成' },
+    portalComfyConfig: { label: 'ComfyUI' },
+  }
+  return defaults[type] || {}
+}
 const menuStyle = computed(() => {
   if (!menuScreenPos.value) return { left: '80px', top: '50%', transform: 'translateY(-50%)' }
   const { x, y } = menuScreenPos.value
@@ -347,12 +519,31 @@ const panToNodes = (nodeIds, options = {}) => {
 
 const addNewNode = async (type) => {
   const pos = dblClickFlowPos.value || getHorizontalPosition(1)[0]
+  const connectFrom = pendingConnection.value
+  clearPreviewConnection()
   dblClickFlowPos.value = null
   menuScreenPos.value = null
-  const defaultData = type === 'portalComfyConfig' ? { label: 'ComfyUI' } : {}
-  const nodeId = addNode(type, pos, defaultData)
+  pendingConnection.value = null
+  const nodeId = addNode(type, pos, getDefaultNodeData(type))
   const maxZIndex = Math.max(0, ...nodes.value.map(n => n.zIndex || 0))
   updateNode(nodeId, { zIndex: maxZIndex + 1 })
+  if (connectFrom) {
+    if (connectFrom.handleType === 'source') {
+      onConnect({
+        source: connectFrom.nodeId,
+        target: nodeId,
+        sourceHandle: connectFrom.handleId || 'right',
+        targetHandle: 'left',
+      })
+    } else {
+      onConnect({
+        source: nodeId,
+        target: connectFrom.nodeId,
+        sourceHandle: 'right',
+        targetHandle: connectFrom.handleId || 'left',
+      })
+    }
+  }
   setTimeout(() => updateNodeInternals(nodeId), 50)
   showNodeMenu.value = false
   setTimeout(() => panToNodes([nodeId], { duration: 300 }), 150)
@@ -535,7 +726,42 @@ const isValidConnection = (connection) => {
   return connection.sourceHandle === 'right' && connection.targetHandle === 'left'
 }
 
+const onConnectStart = ({ nodeId, handleId, handleType }) => {
+  connectionMade.value = false
+  pendingConnection.value = { nodeId, handleId, handleType }
+}
+
+const onConnectEnd = (event) => {
+  if (connectionMade.value) {
+    pendingConnection.value = null
+    return
+  }
+  if (!pendingConnection.value || !event || !('clientX' in event)) {
+    pendingConnection.value = null
+    return
+  }
+  if (event.target instanceof Element && event.target.closest('.vue-flow__handle')) {
+    pendingConnection.value = null
+    return
+  }
+
+  const flowPos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+  dblClickFlowPos.value = { x: Math.round(flowPos.x), y: Math.round(flowPos.y) }
+  menuScreenPos.value = { x: event.clientX, y: event.clientY }
+  showPreviewConnection(pendingConnection.value, dblClickFlowPos.value)
+  suppressNextPaneClick.value = true
+  nextTick(() => {
+    showNodeMenu.value = true
+    nextTick(() => {
+      suppressNextPaneClick.value = false
+    })
+  })
+}
+
 const onConnect = (params) => {
+  connectionMade.value = true
+  clearPreviewConnection()
+  pendingConnection.value = null
   if (!isValidConnection(params)) {
     nextTick(() => {
       edges.value = edges.value.filter(e =>
@@ -633,17 +859,29 @@ const toggleNodeMenu = () => {
   if (showNodeMenu.value) {
     showNodeMenu.value = false
     menuScreenPos.value = null
+    dblClickFlowPos.value = null
+    pendingConnection.value = null
+    clearPreviewConnection()
   } else {
     menuScreenPos.value = null
+    dblClickFlowPos.value = null
+    pendingConnection.value = null
+    clearPreviewConnection()
     showNodeMenu.value = true
   }
 }
 
 const onPaneClick = () => {
+  if (suppressNextPaneClick.value) {
+    suppressNextPaneClick.value = false
+    return
+  }
   showNodeMenu.value = false
   menuScreenPos.value = null
-  // 取消所有节点选中
-  nodes.value = nodes.value.map(n => ({ ...n, data: { ...n.data, selected: false } }))
+  dblClickFlowPos.value = null
+  pendingConnection.value = null
+  clearPreviewConnection()
+  clearNodeSelection()
 }
 
 const handleProjectAction = (key) => {
@@ -691,6 +929,14 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile); saveProje
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
 @import '@vue-flow/minimap/dist/style.css';
+
+/* theme-default sets handles to 6px; override after import */
+.vue-flow__handle {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 100%;
+}
+
 .canvas-flow { width: 100%; height: 100%; }
 
 /* Selection ring follows the inner card border, not an oversized vue-flow box */
@@ -707,10 +953,16 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile); saveProje
 .vue-flow__node-videoConfig,
 .vue-flow__node-portalComfyConfig,
 .vue-flow__node-portalImageConfig,
-.vue-flow__node-portalVideoConfig {
+.vue-flow__node-portalVideoConfig,
+.vue-flow__node-previewAnchor {
   height: auto !important;
   width: auto !important;
   overflow: visible !important;
+}
+
+.vue-flow__node-previewAnchor {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .text-node-wrapper,
@@ -731,5 +983,29 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile); saveProje
 .video-config-node-wrapper > .video-config-node,
 .portal-comfy-config-node-wrapper > .portal-comfy-config-node {
   margin-top: 20px;
+}
+
+/* Minimap: theme-aware background */
+.canvas-flow .vue-flow__minimap.canvas-minimap {
+  bottom: 16px !important;
+  right: 16px !important;
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.dark .canvas-flow .vue-flow__minimap.canvas-minimap {
+  background-color: rgba(15, 30, 58, 0.96) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.canvas-flow .vue-flow__minimap-mask {
+  pointer-events: none;
+}
+
+.dark .canvas-flow .vue-flow__minimap-mask {
+  filter: drop-shadow(0 0 4px rgba(125, 211, 252, 0.85));
 }
 </style>

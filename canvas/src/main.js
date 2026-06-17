@@ -9,6 +9,7 @@ import './style.css'
 import './studio-gradient.css'
 import '../../studio/studio-user-badge.css'
 import '../../studio/studio-api-settings.css'
+import '../../studio/studio-auth-bridge.js'
 import '../../studio/studio-api-models-catalog.js'
 import '../../studio/studio-api-settings.js'
 

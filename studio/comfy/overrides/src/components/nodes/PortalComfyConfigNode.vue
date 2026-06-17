@@ -225,7 +225,7 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { Handle, Position, useVueFlow } from '@vue-flow/core'
 import { NIcon, NDropdown, NSpin } from 'naive-ui'
 import { ChevronDownOutline, ChevronForwardOutline, CopyOutline, TrashOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
-import { updateNode, addNode, addEdge, nodes, edges, duplicateNode, removeNode } from '@/stores/canvas'
+import { updateNode, addNode, addEdge, nodes, edges, duplicateNode, removeNode, currentProjectId } from '@/stores/canvas'
 import NodeHandleMenu from '@/components/nodes/NodeHandleMenu.vue'
 import { runPortalWorkflow, cancelPortalWorkflow, uploadPortalImage, resolvePortalAppNodeType, getPortalAppModeLabel } from '../../api/portal'
 import { buildDefaultParamValues, getExposedParams, isPromptParam, isVideoApp, rememberPortalApp, resolveConnectedInputNodes, usePortalWorkflow } from '../../hooks/usePortalWorkflow'
@@ -634,6 +634,8 @@ const runWorkflowWithCancel = (runParams, prompt, outputNodeId, { timeoutSec = 6
     timeoutSec,
     signal: abortController.value.signal,
     isCancelled: () => cancelledByUser.value,
+    canvasId: currentProjectId.value || '',
+    source: 'canvas',
     onPromptQueued: (promptId) => {
       activePromptId.value = promptId
     },
@@ -770,21 +772,25 @@ const buildVideoRunParams = async (inputs) => {
 
 // Find connected output image node | 查找已连接的输出图片节点
 const findConnectedOutputImageNode = (onlyEmpty = true) => {
-  // Find edges where this node is the source | 查找以当前节点为源的边
   const outputEdges = edges.value.filter(e => e.source === props.id)
-  
-  for (const edge of outputEdges) {
-    const targetNode = nodes.value.find(n => n.id === edge.target)
-    if (targetNode?.type === 'image') {
-      if (onlyEmpty) {
-        // Check if target is an image node with empty or no url | 检查目标是否为空白图片节点
-        if (!targetNode.data?.url || targetNode.data?.url === '') {
-          return targetNode.id
-        }
-      } else {
-        // Return any connected image node | 返回任意连接的图片节点
+  const connectedImages = outputEdges
+    .map((edge) => nodes.value.find((n) => n.id === edge.target))
+    .filter((node) => node?.type === 'image')
+
+  const selectedTarget = connectedImages.find((node) => node.data?.selected)
+  if (selectedTarget) {
+    if (!onlyEmpty || !selectedTarget.data?.url || selectedTarget.data.url === '') {
+      return selectedTarget.id
+    }
+  }
+
+  for (const targetNode of connectedImages) {
+    if (onlyEmpty) {
+      if (!targetNode.data?.url || targetNode.data?.url === '') {
         return targetNode.id
       }
+    } else {
+      return targetNode.id
     }
   }
   return null

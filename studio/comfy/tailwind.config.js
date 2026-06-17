@@ -2,7 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const canvasRoot = path.resolve(__dirname, '../../../Canvas2/Canvas')
+const canvasRoot = path.resolve(__dirname, '../../canvas')
 const overridesRoot = path.resolve(__dirname, 'overrides')
 
 /** @type {import('tailwindcss').Config} */
