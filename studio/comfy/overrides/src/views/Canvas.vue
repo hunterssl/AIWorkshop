@@ -92,7 +92,7 @@
         <button 
           @click="showVirtualImagePanel = true"
           class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors"
-          title="虚拟人像库"
+          title="资产库"
         >
           <n-icon :size="20"><GridOutline /></n-icon>
         </button>
