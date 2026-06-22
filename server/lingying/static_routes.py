@@ -7,6 +7,7 @@ from pathlib import Path
 from aiohttp import web
 
 from .paths import huobao_canvas_dir, huobao_canvas_index, studio_index_file, studio_ui_dir
+from .proxy import COMFYUI_ROOT_QUERY_KEYS, proxy_comfy_request
 
 routes = web.RouteTableDef()
 
@@ -31,7 +32,9 @@ def _safe_file(root: Path, rel: str) -> Path | None:
 
 
 @routes.get("/")
-async def root_redirect(_request: web.Request) -> web.Response:
+async def root_handler(request: web.Request) -> web.StreamResponse:
+    if COMFYUI_ROOT_QUERY_KEYS.intersection(request.rel_url.query):
+        return await proxy_comfy_request(request)
     raise web.HTTPFound("/rh/studio")
 
 

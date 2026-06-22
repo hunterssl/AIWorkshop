@@ -106,13 +106,22 @@
       inset: 0;
       z-index: 7;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 8px;
+      padding: 24px;
+      text-align: center;
       background: radial-gradient(circle at center, rgba(30, 41, 59, .45), rgba(11, 16, 32, .96));
       font-size: 13px;
       color: #cbd5e1;
       letter-spacing: .2px;
+      white-space: pre-line;
+      line-height: 1.6;
       transition: opacity .18s ease;
+    }
+    .loading-mask.offline {
+      color: #fecaca;
     }
     .loading-mask.hidden {
       opacity: 0;
@@ -151,6 +160,8 @@
       const btnBack = document.getElementById("btnBack");
 
       const ORIGIN = window.location.origin;
+      const COMFY_OFFLINE_MSG =
+        "ComfyUI 算力节点未启动或无法连接\n\n请先运行：\nAIWorkshop\\deploy\\scripts\\start-comfyui-lan.bat\n\n启动后点击「重载画布」重试。";
       const state = {
         appId: "",
         appName: "",
@@ -172,9 +183,31 @@
         else if (text && !state.imported) statusEl.classList.add("show");
         else statusEl.classList.remove("show");
         if (text && !state.imported) {
-          loadingMask.textContent = text.replace(/\n/g, " · ");
+          loadingMask.textContent = text.replace(/\n/g, "\n");
+          loadingMask.classList.toggle("offline", mode === "err");
         } else if (!state.imported) {
           loadingMask.textContent = "正在准备编辑器并导入工作流，请稍候...";
+          loadingMask.classList.remove("offline");
+        }
+      }
+
+      function showComfyOffline() {
+        setEditorVisible(false);
+        if (state.iframeReadyTimer) {
+          clearTimeout(state.iframeReadyTimer);
+          state.iframeReadyTimer = null;
+        }
+        clearImportRetryTimer();
+        setStatus(COMFY_OFFLINE_MSG, "err");
+      }
+
+      async function checkComfyWorkerOnline() {
+        try {
+          const resp = await fetch("/rh/api/comfy/status", { cache: "no-store" });
+          const data = await resp.json().catch(() => ({}));
+          return Boolean(resp.ok && data.online);
+        } catch {
+          return false;
         }
       }
 
@@ -191,8 +224,13 @@
 
       function startIframeReadyWatchdog() {
         if (state.iframeReadyTimer) clearTimeout(state.iframeReadyTimer);
-        state.iframeReadyTimer = setTimeout(() => {
+        state.iframeReadyTimer = setTimeout(async () => {
           if (state.iframeReady || state.imported) return;
+          const online = await checkComfyWorkerOnline();
+          if (!online) {
+            showComfyOffline();
+            return;
+          }
           setEditorVisible(false);
           setStatus(
             "画布启动超时（60秒）\n请点击「重载画布」后重试，或确认 ComfyUI 已重启",
@@ -406,7 +444,13 @@
           flushImport("manual-retry");
           startImportRetryLoop();
         });
-        btnReloadFrame.addEventListener("click", () => {
+        btnReloadFrame.addEventListener("click", async () => {
+          setStatus("正在检查 ComfyUI 算力节点...");
+          const online = await checkComfyWorkerOnline();
+          if (!online) {
+            showComfyOffline();
+            return;
+          }
           state.iframeReady = false;
           state.imported = false;
           state.importRetryCount = 0;
@@ -433,6 +477,12 @@
         wireEvents();
         if (!primeComfyUserBeforeIframe()) {
           setStatus("请先在创作工坊登录，再编辑工作流", "err");
+          return;
+        }
+        setStatus("正在检查 ComfyUI 算力节点...");
+        const comfyOnline = await checkComfyWorkerOnline();
+        if (!comfyOnline) {
+          showComfyOffline();
           return;
         }
         mountComfyIframe();

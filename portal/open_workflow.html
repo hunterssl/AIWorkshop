@@ -100,6 +100,19 @@
           throw new Error("未获取到 app_id");
         }
         appIdLine.textContent = "app_id: " + appId;
+        setStatus("正在检查 ComfyUI 算力节点...");
+        try {
+          const statusResp = await fetch("/rh/api/comfy/status", { cache: "no-store" });
+          const statusData = await statusResp.json().catch(() => ({}));
+          if (!statusResp.ok || !statusData.online) {
+            throw new Error("ComfyUI 算力节点未启动，请先运行 start-comfyui-lan.bat");
+          }
+        } catch (error) {
+          throw new Error(
+            error?.message ||
+              "ComfyUI 算力节点未启动，请先运行 AIWorkshop\\deploy\\scripts\\start-comfyui-lan.bat"
+          );
+        }
         setStatus("正在拉取应用信息...");
 
         const [detail, raw] = await Promise.all([

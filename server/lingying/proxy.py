@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import urllib.parse
 
 import aiohttp
 from aiohttp import web, WSMsgType
@@ -24,6 +25,15 @@ _HOP_BY_HOP = {
     "upgrade",
     "host",
     "content-length",
+}
+
+# 浏览器 → 网关(8080) 的 Origin/Host 不能原样带给 ComfyUI(8188)，否则会触发 CSRF 403。
+_STRIP_TO_WORKER = {
+    "origin",
+    "referer",
+    "sec-fetch-site",
+    "sec-fetch-mode",
+    "sec-fetch-dest",
 }
 
 _PROXY_PREFIXES: tuple[str, ...] = (
@@ -52,20 +62,75 @@ _LOCAL_RH_API_PREFIXES: tuple[str, ...] = (
     "/rh/api/apps",
 )
 
+# ComfyUI 原生画布入口（与 ComfyUI-Portal routes.py 保持一致）
+COMFYUI_ROOT_QUERY_KEYS = frozenset(
+    {
+        "rh_iframe_editor",
+        "rh_portal_workflow_file_app",
+        "rh_portal_open_workflow",
+        "rh_comfy_ui",
+    }
+)
+
+# ComfyUI 前端静态资源（iframe 编辑工作流时需要）
+_COMFY_UI_PREFIXES: tuple[str, ...] = (
+    "/scripts",
+    "/assets",
+    "/docs",
+    "/lib",
+    "/templates",
+    "/extensions",
+    "/embeddings",
+    "/models",
+)
+
+_ROOT_ASSET_SUFFIXES = (
+    ".ico",
+    ".json",
+    ".webp",
+    ".png",
+    ".svg",
+    ".woff",
+    ".woff2",
+    ".wasm",
+    ".map",
+    ".css",
+    ".js",
+)
+
+
+def _is_comfy_root_asset(path: str) -> bool:
+    if not path or path == "/":
+        return False
+    name = path.rsplit("/", 1)[-1]
+    return bool(name) and any(name.endswith(suffix) for suffix in _ROOT_ASSET_SUFFIXES)
+
 
 def _should_proxy(path: str) -> bool:
     if any(path.startswith(p) for p in _LOCAL_RH_API_PREFIXES):
         return False
+    if any(path.startswith(p) for p in _COMFY_UI_PREFIXES):
+        return True
+    if _is_comfy_root_asset(path):
+        return True
     return any(path.startswith(p) for p in _PROXY_PREFIXES)
+
+
+def _worker_netloc() -> str:
+    parsed = urllib.parse.urlparse(load_settings().comfy_worker_url)
+    if parsed.netloc:
+        return parsed.netloc
+    return parsed.path or "127.0.0.1:8188"
 
 
 def _forward_headers(request: web.Request, comfy_user: str | None) -> dict[str, str]:
     headers: dict[str, str] = {}
     for key, value in request.headers.items():
         lower = key.lower()
-        if lower in _HOP_BY_HOP:
+        if lower in _HOP_BY_HOP or lower in _STRIP_TO_WORKER:
             continue
         headers[key] = value
+    headers["Host"] = _worker_netloc()
     if comfy_user and "comfy-user" not in {k.lower() for k in headers}:
         headers["Comfy-User"] = comfy_user
     return headers
@@ -92,9 +157,9 @@ def _worker_ws_url(path_qs: str) -> str:
     return f"{ws_base}{path_qs}"
 
 
-async def _proxy_http(request: web.Request) -> web.Response:
+async def _proxy_http(request: web.Request, *, force: bool = False) -> web.Response:
     path = request.path
-    if not _should_proxy(path):
+    if not force and not _should_proxy(path):
         return web.json_response({"error": "not found"}, status=404)
 
     comfy_user = _resolve_studio_user_from_request(request)
@@ -176,6 +241,11 @@ async def _proxy_websocket(request: web.Request) -> web.WebSocketResponse:
         if not ws_client.closed:
             await ws_client.close()
     return ws_client
+
+
+async def proxy_comfy_request(request: web.Request) -> web.StreamResponse:
+    """代理到 ComfyUI（用于 /?rh_iframe_editor=1 等画布入口）。"""
+    return await _proxy_http(request, force=True)
 
 
 async def _proxy_http_dispatcher(request: web.Request) -> web.StreamResponse:
