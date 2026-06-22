@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>正在打开工作流</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0b1020;
+      color: #e2e8f0;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    .card {
+      width: min(620px, calc(100vw - 28px));
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.88);
+      padding: 18px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .line {
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin: 4px 0;
+      word-break: break-all;
+    }
+    .muted {
+      color: #94a3b8;
+    }
+    .error {
+      color: #fca5a5;
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <h1>正在进入 ComfyUI 工作流编辑器</h1>
+    <p class="line" id="status">准备中...</p>
+    <p class="line muted" id="appIdLine"></p>
+    <p class="line muted">如果页面停在这里超过 8 秒，请把本页面截图发给助手。</p>
+  </section>
+
+  <script>
+    (function () {
+      const STAGING_KEY = "rh_portal_staged_workflow_v1";
+      const RETRY_STATE_KEY = "__rhPortalOpenWorkflowRetryStateV2";
+      const LEGACY_RETRY_STATE_KEY = "__rhPortalOpenWorkflowRetryStateV1";
+      const statusEl = document.getElementById("status");
+      const appIdLine = document.getElementById("appIdLine");
+
+      function setStatus(text, isError) {
+        statusEl.textContent = text;
+        statusEl.className = isError ? "line error" : "line";
+      }
+
+      function getAppIdFromPath() {
+        const m = window.location.pathname.match(/\/rh\/open-workflow\/([^/?#]+)/);
+        return m ? decodeURIComponent(m[1]) : "";
+      }
+
+      async function requestJson(url) {
+        const resp = await fetch(url);
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(data?.error || ("HTTP " + resp.status));
+        }
+        return data;
+      }
+
+      async function requestText(url) {
+        const resp = await fetch(url);
+        const text = await resp.text();
+        if (!resp.ok) {
+          try {
+            const data = JSON.parse(text || "{}");
+            throw new Error(data?.error || ("HTTP " + resp.status));
+          } catch {
+            throw new Error("HTTP " + resp.status);
+          }
+        }
+        return text;
+      }
+
+      async function main() {
+        const appId = getAppIdFromPath();
+        if (!appId) {
+          throw new Error("未获取到 app_id");
+        }
+        appIdLine.textContent = "app_id: " + appId;
+        setStatus("正在拉取应用信息...");
+
+        const [detail, raw] = await Promise.all([
+          requestJson("/rh/api/apps/" + encodeURIComponent(appId) + "?lite=1"),
+          requestText("/rh/api/apps/" + encodeURIComponent(appId) + "/workflow-file"),
+        ]);
+        const workflow = JSON.parse(raw || "{}");
+        if (!workflow || typeof workflow !== "object" || !Array.isArray(workflow.nodes) || workflow.nodes.length === 0) {
+          throw new Error("该应用未保存可编辑 workflow_json");
+        }
+
+        const payload = {
+          app_id: appId,
+          app_name: detail?.name || appId,
+          workflow: workflow,
+          ts: Date.now(),
+        };
+        // 每次点击“编辑工作流”都重置导入重试状态，确保自动刷新逻辑会重新执行。
+        sessionStorage.removeItem(RETRY_STATE_KEY);
+        sessionStorage.removeItem(LEGACY_RETRY_STATE_KEY);
+        sessionStorage.setItem(STAGING_KEY, JSON.stringify(payload));
+        setStatus("工作流已缓存，正在跳转到 ComfyUI 画布...");
+        window.location.replace("/?rh_portal_open_workflow=1");
+      }
+
+      main().catch((error) => {
+        setStatus("打开失败：" + (error?.message || "unknown error"), true);
+      });
+    })();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>工作流编辑器</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #e2e8f0;
+      background: #12161f;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 58px 1fr;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+      background: linear-gradient(130deg, rgba(17, 24, 39, 0.96), rgba(15, 23, 42, 0.96));
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 18px rgba(2, 6, 23, 0.42);
+    }
+    .title-block {
+      min-width: 0;
+    }
+    .title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .meta {
+      display: none;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      border: 1px solid transparent;
+      border-radius: 999px;
+      color: #f8fafc;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: transform .15s ease, filter .18s ease, box-shadow .18s ease;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.34);
+    }
+    #btnBack {
+      background: linear-gradient(135deg, #334155, #475569);
+    }
+    #btnRetry {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    }
+    #btnReloadFrame {
+      background: linear-gradient(135deg, #ea580c, #f97316);
+    }
+    .main {
+      position: relative;
+      min-height: 0;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #0b1020;
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    iframe.ready { opacity: 1; }
+    .status {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      z-index: 8;
+      min-width: 260px;
+      max-width: min(460px, calc(100vw - 24px));
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.84);
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    .status.show { opacity: 1; }
+    .status.ok { border-color: rgba(34, 197, 94, 0.45); }
+    .status.err { border-color: rgba(239, 68, 68, 0.45); color: #fecaca; }
+    .loading-mask {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, rgba(30, 41, 59, .45), rgba(11, 16, 32, .96));
+      font-size: 13px;
+      color: #cbd5e1;
+      letter-spacing: .2px;
+      transition: opacity .18s ease;
+    }
+    .loading-mask.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+  <script src="/rh/studio/studio-auth-bridge.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="title-block">
+      <div class="title" id="title">工作流编辑器</div>
+      <div class="meta" id="meta">准备中...</div>
+    </div>
+    <div class="actions">
+      <button id="btnBack" type="button">返回创作工坊</button>
+      <button id="btnRetry" type="button">重试导入</button>
+      <button id="btnReloadFrame" type="button">重载画布</button>
+    </div>
+  </header>
+  <main class="main">
+    <iframe id="comfyFrame" allow="clipboard-read; clipboard-write"></iframe>
+    <div class="loading-mask" id="loadingMask">正在准备编辑器并导入工作流，请稍候...</div>
+    <div class="status" id="status">等待画布启动...</div>
+  </main>
+
+  <script>
+    (function () {
+      const frame = document.getElementById("comfyFrame");
+      const loadingMask = document.getElementById("loadingMask");
+      const statusEl = document.getElementById("status");
+      const titleEl = document.getElementById("title");
+      const metaEl = document.getElementById("meta");
+      const btnRetry = document.getElementById("btnRetry");
+      const btnReloadFrame = document.getElementById("btnReloadFrame");
+      const btnBack = document.getElementById("btnBack");
+
+      const ORIGIN = window.location.origin;
+      const state = {
+        appId: "",
+        appName: "",
+        workflow: null,
+        iframeReady: false,
+        loading: false,
+        sendCount: 0,
+        imported: false,
+        importRetryTimer: null,
+        importRetryCount: 0,
+        importRetryMax: 40,
+        iframeReadyTimer: null,
+      };
+
+      function setStatus(text, mode) {
+        statusEl.textContent = text;
+        statusEl.className = `status ${mode || ""}`.trim();
+        if (text && mode === "err") statusEl.classList.add("show");
+        else if (text && !state.imported) statusEl.classList.add("show");
+        else statusEl.classList.remove("show");
+        if (text && !state.imported) {
+          loadingMask.textContent = text.replace(/\n/g, " · ");
+        } else if (!state.imported) {
+          loadingMask.textContent = "正在准备编辑器并导入工作流，请稍候...";
+        }
+      }
+
+      function setEditorVisible(visible) {
+        if (visible) {
+          frame.classList.add("ready");
+          loadingMask.classList.add("hidden");
+          setStatus("", "");
+          return;
+        }
+        frame.classList.remove("ready");
+        loadingMask.classList.remove("hidden");
+      }
+
+      function startIframeReadyWatchdog() {
+        if (state.iframeReadyTimer) clearTimeout(state.iframeReadyTimer);
+        state.iframeReadyTimer = setTimeout(() => {
+          if (state.iframeReady || state.imported) return;
+          setEditorVisible(false);
+          setStatus(
+            "画布启动超时（60秒）\n请点击「重载画布」后重试，或确认 ComfyUI 已重启",
+            "err"
+          );
+        }, 60000);
+      }
+
+      function readStudioAuthPayload() {
+        try {
+          const userId = localStorage.getItem("rh_studio_user_id") || "";
+          const displayName = localStorage.getItem("Comfy.userName") || userId.split("_")[0] || userId;
+          return {
+            user_id: userId,
+            display_name: displayName,
+            session_token: sessionStorage.getItem("rh_studio_session_token") || "",
+            authed_user_id: sessionStorage.getItem("rh_studio_authed_user_id") || "",
+          };
+        } catch {
+          return { user_id: "", display_name: "", session_token: "", authed_user_id: "" };
+        }
+      }
+
+      function primeComfyUserBeforeIframe() {
+        const auth = readStudioAuthPayload();
+        if (!auth.user_id) return false;
+        try {
+          localStorage.setItem("Comfy.userId", auth.user_id);
+          localStorage.setItem("Comfy.userName", auth.display_name || auth.user_id);
+          document.cookie = `rh_studio_user_id=${encodeURIComponent(auth.user_id)}; path=/; SameSite=Lax`;
+        } catch (_) {}
+        return true;
+      }
+
+      function mountComfyIframe() {
+        if (!frame) return;
+        frame.src = "/?rh_iframe_editor=1";
+      }
+
+      function postAuthToIframe() {
+        if (!frame.contentWindow || !state.iframeReady) return;
+        const auth = readStudioAuthPayload();
+        if (!auth.user_id) return;
+        frame.contentWindow.postMessage(
+          { type: "RH_STUDIO_AUTH", payload: auth },
+          ORIGIN
+        );
+      }
+
+      function clearImportRetryTimer() {
+        if (state.importRetryTimer) {
+          clearInterval(state.importRetryTimer);
+          state.importRetryTimer = null;
+        }
+      }
+
+      function canPostImport() {
+        return Boolean(state.workflow && state.iframeReady && frame.contentWindow);
+      }
+
+      function startImportRetryLoop() {
+        clearImportRetryTimer();
+        state.importRetryTimer = setInterval(() => {
+          if (state.imported) {
+            clearImportRetryTimer();
+            return;
+          }
+          if (!canPostImport()) return;
+          state.importRetryCount += 1;
+          if (state.importRetryCount > state.importRetryMax) {
+            clearImportRetryTimer();
+            setEditorVisible(false);
+            setStatus("导入超时，请点击「重试导入」或「重载画布」", "err");
+            return;
+          }
+          postImport("auto-retry");
+        }, 1200);
+      }
+
+      function flushImport(reason = "flush") {
+        if (state.imported) return;
+        if (!state.workflow) {
+          setStatus("正在拉取工作流...");
+          return;
+        }
+        if (!state.iframeReady) {
+          setStatus("工作流已加载，等待画布 READY...");
+          return;
+        }
+        postImport(reason);
+        if (!state.importRetryTimer) startImportRetryLoop();
+      }
+
+      function getAppIdFromPath() {
+        const m = window.location.pathname.match(/\/rh\/editor\/([^/?#]+)/);
+        return m ? decodeURIComponent(m[1]) : "";
+      }
+
+      async function requestJson(url) {
+        const resp = await fetch(url);
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+        return data;
+      }
+
+      async function requestText(url) {
+        const resp = await fetch(url);
+        const text = await resp.text();
+        if (!resp.ok) {
+          try {
+            const data = JSON.parse(text || "{}");
+            throw new Error(data?.error || `HTTP ${resp.status}`);
+          } catch {
+            throw new Error(`HTTP ${resp.status}`);
+          }
+        }
+        return text;
+      }
+
+      async function loadWorkflow() {
+        if (!state.appId) throw new Error("缺少 app_id");
+        setStatus("正在拉取应用与工作流...");
+        const [detail, raw] = await Promise.all([
+          requestJson(`/rh/api/apps/${encodeURIComponent(state.appId)}?lite=1`),
+          requestText(`/rh/api/apps/${encodeURIComponent(state.appId)}/workflow-file`),
+        ]);
+        let workflow = null;
+        try {
+          workflow = JSON.parse(raw);
+        } catch {
+          throw new Error("服务器 workflow-file 不是有效 JSON");
+        }
+        if (!workflow || !Array.isArray(workflow.nodes) || workflow.nodes.length === 0) {
+          throw new Error("workflow_json 为空或无节点");
+        }
+        state.appName = String(detail?.name || state.appId);
+        state.workflow = workflow;
+        titleEl.textContent = state.appName;
+        document.title = `${state.appName} · 工作流编辑器`;
+        metaEl.textContent = "";
+      }
+
+      function postImport(reason) {
+        if (!state.workflow) {
+          setStatus("正在拉取工作流...");
+          return;
+        }
+        if (!state.iframeReady) {
+          setStatus("等待画布 READY...");
+          return;
+        }
+        if (!frame.contentWindow) {
+          setStatus("iframe 未就绪，无法发送导入命令", "err");
+          return;
+        }
+        state.sendCount += 1;
+        setStatus(`正在导入工作流（${reason}）...\n第 ${state.sendCount} 次发送`);
+        frame.contentWindow.postMessage(
+          {
+            type: "RH_IMPORT_WORKFLOW",
+            payload: {
+              app_id: state.appId,
+              app_name: state.appName,
+              workflow: state.workflow,
+            },
+          },
+          ORIGIN
+        );
+      }
+
+      function wireEvents() {
+        window.addEventListener("message", (event) => {
+          if (event.origin !== ORIGIN) return;
+          const data = event.data || {};
+          if (!data || typeof data !== "object") return;
+          if (data.type === "RH_IFRAME_READY") {
+            state.iframeReady = true;
+            if (state.iframeReadyTimer) {
+              clearTimeout(state.iframeReadyTimer);
+              state.iframeReadyTimer = null;
+            }
+            postAuthToIframe();
+            flushImport("iframe-ready");
+            return;
+          }
+          if (data.type === "RH_IFRAME_IMPORTED") {
+            const nodes = Number(data?.payload?.nodes || 0);
+            if (nodes > 0) {
+              state.imported = true;
+              clearImportRetryTimer();
+              setEditorVisible(true);
+              setStatus("", "");
+            } else {
+              setEditorVisible(false);
+              setStatus("导入完成但节点数为 0，正在重试...", "err");
+              flushImport("empty-nodes-retry");
+            }
+            return;
+          }
+          if (data.type === "RH_IFRAME_ERROR") {
+            const msg = String(data?.payload?.message || "unknown error");
+            setEditorVisible(false);
+            setStatus(`导入失败\n${msg}`, "err");
+            if (!state.importRetryTimer) startImportRetryLoop();
+          }
+        });
+
+        btnRetry.addEventListener("click", () => {
+          state.importRetryCount = 0;
+          state.imported = false;
+          flushImport("manual-retry");
+          startImportRetryLoop();
+        });
+        btnReloadFrame.addEventListener("click", () => {
+          state.iframeReady = false;
+          state.imported = false;
+          state.importRetryCount = 0;
+          clearImportRetryTimer();
+          if (state.iframeReadyTimer) {
+            clearTimeout(state.iframeReadyTimer);
+            state.iframeReadyTimer = null;
+          }
+          setEditorVisible(false);
+          setStatus("正在重载 iframe...");
+          primeComfyUserBeforeIframe();
+          frame.src = "/?rh_iframe_editor=1";
+          startIframeReadyWatchdog();
+        });
+        btnBack.addEventListener("click", () => {
+          window.location.href = "/rh/studio";
+        });
+      }
+
+      async function bootstrap() {
+        state.appId = getAppIdFromPath();
+        if (!state.appId) throw new Error("URL 缺少 app_id");
+        setEditorVisible(false);
+        wireEvents();
+        if (!primeComfyUserBeforeIframe()) {
+          setStatus("请先在创作工坊登录，再编辑工作流", "err");
+          return;
+        }
+        mountComfyIframe();
+        startIframeReadyWatchdog();
+        await loadWorkflow();
+        flushImport("workflow-loaded");
+      }
+
+      bootstrap().catch((error) => {
+        setStatus(`初始化失败\n${error.message}`, "err");
+      });
+    })();
+  </script>
+</body>
+</html>
+
