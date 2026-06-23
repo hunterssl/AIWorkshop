@@ -1,6 +1,7 @@
 # 构建产物
 studio/dist/
 canvas/dist/
+.pyc
 
 # 依赖
 node_modules/
@@ -13,3 +14,4 @@ Thumbs.db
 
 #用户文件
 studio_users/
+paths.js

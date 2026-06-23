@@ -30,8 +30,28 @@ if not exist "lingying\app.py" (
   exit /b 1
 )
 
-set "PY=python"
-if exist "..\..\venv\Scripts\python.exe" set "PY=..\..\venv\Scripts\python.exe"
+set "PROJECT_ROOT=%~dp0..\.."
+for %%I in ("%PROJECT_ROOT%") do set "PROJECT_ROOT=%%~fI"
+
+set "COMFYUI_DIR="
+for /f "usebackq delims=" %%i in (`node -e "const c=require(process.argv[1]);process.stdout.write(String(c.comfyuiRoot||'').trim())" "%PROJECT_ROOT%\config\paths.js" 2^>nul`) do set "COMFYUI_DIR=%%i"
+if "%COMFYUI_DIR%"=="" (
+  echo [错误] 无法从 config/paths.js 读取 comfyuiRoot
+  pause
+  exit /b 1
+)
+
+set "PY=%COMFYUI_DIR%\.ext\python.exe"
+
+if not exist "%PY%" (
+  echo [错误] 找不到 ComfyUI Python: %PY%
+  pause
+  exit /b 1
+)
+
+
+echo 使用 Python: %PY%
+"%PY%" -c "import sys; print(sys.executable)"
 
 echo ========================================
 echo  灵影 - 工坊网关（内网 %PORT%）
