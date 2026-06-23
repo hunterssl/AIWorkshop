@@ -61,6 +61,20 @@
     #btnBack {
       background: linear-gradient(135deg, #334155, #475569);
     }
+    #btnRun {
+      background: linear-gradient(135deg, #15803d, #22c55e);
+    }
+    #btnSave {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    }
+    #btnRun:disabled,
+    #btnSave:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      filter: none;
+      box-shadow: none;
+    }
     #btnRetry {
       background: linear-gradient(135deg, #1d4ed8, #2563eb);
     }
@@ -138,6 +152,8 @@
     </div>
     <div class="actions">
       <button id="btnBack" type="button">返回创作工坊</button>
+      <button id="btnRun" type="button" disabled>运行</button>
+      <button id="btnSave" type="button" disabled>保存</button>
       <button id="btnRetry" type="button">重试导入</button>
       <button id="btnReloadFrame" type="button">重载画布</button>
     </div>
@@ -158,6 +174,8 @@
       const btnRetry = document.getElementById("btnRetry");
       const btnReloadFrame = document.getElementById("btnReloadFrame");
       const btnBack = document.getElementById("btnBack");
+      const btnRun = document.getElementById("btnRun");
+      const btnSave = document.getElementById("btnSave");
 
       const ORIGIN = window.location.origin;
       const COMFY_OFFLINE_MSG =
@@ -174,7 +192,40 @@
         importRetryCount: 0,
         importRetryMax: 40,
         iframeReadyTimer: null,
+        actionBusy: false,
+        pendingAction: "",
       };
+
+      function authHeaders(extra = {}) {
+        const auth = readStudioAuthPayload();
+        const headers = { ...extra };
+        if (auth.user_id) headers["Comfy-User"] = auth.user_id;
+        if (auth.session_token && auth.authed_user_id && auth.authed_user_id === auth.user_id) {
+          headers["rh-studio-session"] = auth.session_token;
+        }
+        return headers;
+      }
+
+      function setActionButtonsEnabled(enabled) {
+        btnRun.disabled = !enabled || state.actionBusy;
+        btnSave.disabled = !enabled || state.actionBusy;
+      }
+
+      function setActionBusy(busy, label) {
+        state.actionBusy = busy;
+        setActionButtonsEnabled(state.imported);
+        if (busy && label) {
+          setStatus(label, "");
+          statusEl.classList.add("show");
+        }
+      }
+
+      function postToIframe(type, payload = {}) {
+        if (!frame.contentWindow || !state.iframeReady) {
+          throw new Error("画布未就绪");
+        }
+        frame.contentWindow.postMessage({ type, payload }, ORIGIN);
+      }
 
       function setStatus(text, mode) {
         statusEl.textContent = text;
@@ -216,10 +267,12 @@
           frame.classList.add("ready");
           loadingMask.classList.add("hidden");
           setStatus("", "");
+          setActionButtonsEnabled(true);
           return;
         }
         frame.classList.remove("ready");
         loadingMask.classList.remove("hidden");
+        setActionButtonsEnabled(false);
       }
 
       function startIframeReadyWatchdog() {
@@ -329,15 +382,26 @@
         return m ? decodeURIComponent(m[1]) : "";
       }
 
-      async function requestJson(url) {
-        const resp = await fetch(url);
+      async function requestJson(url, options = {}) {
+        const method = String(options.method || "GET").toUpperCase();
+        const headers = authHeaders(options.headers || {});
+        if (method !== "GET" && method !== "HEAD" && !headers["Content-Type"]) {
+          headers["Content-Type"] = "application/json";
+        }
+        const resp = await fetch(url, {
+          ...options,
+          headers,
+        });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
         return data;
       }
 
-      async function requestText(url) {
-        const resp = await fetch(url);
+      async function requestText(url, options = {}) {
+        const resp = await fetch(url, {
+          ...options,
+          headers: authHeaders(options.headers || {}),
+        });
         const text = await resp.text();
         if (!resp.ok) {
           try {
@@ -401,6 +465,44 @@
         );
       }
 
+      async function saveWorkflowToUser(workflow) {
+        const result = await requestJson(
+          `/rh/api/apps/${encodeURIComponent(state.appId)}/workflow-file`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ workflow_json: workflow }),
+          }
+        );
+        state.workflow = workflow;
+        return result;
+      }
+
+      function runWorkflow() {
+        if (!state.imported || state.actionBusy) return;
+        try {
+          setActionBusy(true, "正在提交运行...");
+          state.pendingAction = "run";
+          postToIframe("RH_RUN_WORKFLOW");
+        } catch (error) {
+          state.pendingAction = "";
+          setActionBusy(false);
+          setStatus(`运行失败\n${error.message}`, "err");
+        }
+      }
+
+      function saveWorkflow() {
+        if (!state.imported || state.actionBusy) return;
+        try {
+          setActionBusy(true, "正在读取画布并保存...");
+          state.pendingAction = "save";
+          postToIframe("RH_EXPORT_WORKFLOW");
+        } catch (error) {
+          state.pendingAction = "";
+          setActionBusy(false);
+          setStatus(`保存失败\n${error.message}`, "err");
+        }
+      }
+
       function wireEvents() {
         window.addEventListener("message", (event) => {
           if (event.origin !== ORIGIN) return;
@@ -412,6 +514,7 @@
               clearTimeout(state.iframeReadyTimer);
               state.iframeReadyTimer = null;
             }
+            setStatus("画布已就绪，正在导入工作流...");
             postAuthToIframe();
             flushImport("iframe-ready");
             return;
@@ -424,7 +527,6 @@
               setEditorVisible(true);
               setStatus("", "");
             } else {
-              setEditorVisible(false);
               setStatus("导入完成但节点数为 0，正在重试...", "err");
               flushImport("empty-nodes-retry");
             }
@@ -432,15 +534,63 @@
           }
           if (data.type === "RH_IFRAME_ERROR") {
             const msg = String(data?.payload?.message || "unknown error");
-            setEditorVisible(false);
             setStatus(`导入失败\n${msg}`, "err");
             if (!state.importRetryTimer) startImportRetryLoop();
+            return;
+          }
+          if (data.type === "RH_RUN_OK") {
+            state.pendingAction = "";
+            setActionBusy(false);
+            const promptId = String(data?.payload?.prompt_id || "").trim();
+            setStatus(promptId ? `已提交运行\n任务 ID: ${promptId}` : "已提交运行", "ok");
+            statusEl.classList.add("show");
+            window.setTimeout(() => {
+              if (!state.actionBusy) setStatus("", "");
+            }, 2800);
+            return;
+          }
+          if (data.type === "RH_RUN_ERROR") {
+            state.pendingAction = "";
+            setActionBusy(false);
+            setStatus(`运行失败\n${String(data?.payload?.message || "unknown error")}`, "err");
+            return;
+          }
+          if (data.type === "RH_WORKFLOW_EXPORTED") {
+            if (state.pendingAction !== "save") return;
+            const workflow = data?.payload?.workflow;
+            saveWorkflowToUser(workflow)
+              .then((result) => {
+                state.pendingAction = "";
+                setActionBusy(false);
+                const nodes = Number(result?.node_count || data?.payload?.nodes || 0);
+                setStatus(`保存成功\n已写入你的账号（${nodes} 个节点）`, "ok");
+                statusEl.classList.add("show");
+                window.setTimeout(() => {
+                  if (!state.actionBusy) setStatus("", "");
+                }, 2800);
+              })
+              .catch((error) => {
+                state.pendingAction = "";
+                setActionBusy(false);
+                setStatus(`保存失败\n${error.message}`, "err");
+              });
+            return;
+          }
+          if (data.type === "RH_EXPORT_ERROR") {
+            state.pendingAction = "";
+            setActionBusy(false);
+            setStatus(`保存失败\n${String(data?.payload?.message || "unknown error")}`, "err");
           }
         });
+
+        btnRun.addEventListener("click", runWorkflow);
+        btnSave.addEventListener("click", saveWorkflow);
 
         btnRetry.addEventListener("click", () => {
           state.importRetryCount = 0;
           state.imported = false;
+          setEditorVisible(false);
+          setStatus("正在重新导入工作流...");
           flushImport("manual-retry");
           startImportRetryLoop();
         });

@@ -9,6 +9,8 @@ from typing import Any
 
 from aiohttp import web
 
+from .auth_routes import _resolve_studio_user_from_request
+from .config import load_settings
 from .paths import portal_apps_dir, portal_workflows_dir
 
 routes = web.RouteTableDef()
@@ -73,9 +75,18 @@ def _manifest_light_detail(manifest: dict[str, Any], filename_stem: str) -> dict
     return data
 
 
+def _safe_id(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", str(value or "").strip())
+
+
 def _workflow_file_path(app_id: str) -> Path:
-    safe = re.sub(r"[^a-zA-Z0-9_-]", "_", app_id.strip())
-    return portal_workflows_dir() / f"{safe}.workflow.json"
+    return portal_workflows_dir() / f"{_safe_id(app_id)}.workflow.json"
+
+
+def _user_workflow_file_path(user_id: str, app_id: str) -> Path:
+    safe_user = _safe_id(user_id)
+    safe_app = _safe_id(app_id)
+    return load_settings().user_data_dir / safe_user / "workflows" / f"{safe_app}.workflow.json"
 
 
 def _save_workflow_file(app_id: str, workflow_json: Any) -> None:
@@ -141,30 +152,93 @@ async def get_app(request: web.Request) -> web.Response:
         return web.json_response({"error": f"Invalid app manifest: {exc}"}, status=500)
 
 
-@routes.get("/rh/api/apps/{app_id}/workflow-file")
-async def get_app_workflow_file(request: web.Request) -> web.Response:
-    app_id = request.match_info.get("app_id", "")
-    path = portal_apps_dir() / f"{app_id}.json"
-    if not path.is_file():
-        return web.json_response({"error": "App not found"}, status=404)
+def _workflow_response(path: Path) -> web.FileResponse:
+    return web.FileResponse(
+        path,
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-cache",
+            "Content-Disposition": f'inline; filename="{path.name}"',
+        },
+    )
+
+
+def _resolve_workflow_path_for_read(request: web.Request, app_id: str) -> Path | None:
+    user_id = _resolve_studio_user_from_request(request)
+    if user_id:
+        user_path = _user_workflow_file_path(user_id, app_id)
+        if user_path.is_file():
+            return user_path
+
+    manifest_path = portal_apps_dir() / f"{app_id}.json"
+    if not manifest_path.is_file():
+        return None
     try:
-        manifest = _load_manifest(path)
-    except Exception as exc:
-        return web.json_response({"error": f"Invalid app manifest: {exc}"}, status=500)
+        manifest = _load_manifest(manifest_path)
+    except Exception:
+        return None
 
     workflow_path = _workflow_file_path(app_id)
     if not workflow_path.is_file():
         _save_workflow_file(app_id, manifest.get("workflow_json"))
-    if not workflow_path.is_file():
-        return web.json_response({"error": "workflow_json missing"}, status=404)
+    return workflow_path if workflow_path.is_file() else None
 
-    return web.FileResponse(
-        workflow_path,
-        headers={
-            "Content-Type": "application/json; charset=utf-8",
-            "Cache-Control": "no-cache",
-            "Content-Disposition": f'inline; filename="{workflow_path.name}"',
-        },
+
+@routes.get("/rh/api/apps/{app_id}/workflow-file")
+async def get_app_workflow_file(request: web.Request) -> web.Response:
+    app_id = request.match_info.get("app_id", "")
+    workflow_path = _resolve_workflow_path_for_read(request, app_id)
+    if workflow_path is None:
+        manifest_path = portal_apps_dir() / f"{app_id}.json"
+        if not manifest_path.is_file():
+            return web.json_response({"error": "App not found"}, status=404)
+        return web.json_response({"error": "workflow_json missing"}, status=404)
+    return _workflow_response(workflow_path)
+
+
+@routes.put("/rh/api/apps/{app_id}/workflow-file")
+async def put_app_workflow_file(request: web.Request) -> web.Response:
+    app_id = str(request.match_info.get("app_id", "")).strip()
+    if not app_id:
+        return web.json_response({"error": "app_id missing"}, status=400)
+
+    user_id = _resolve_studio_user_from_request(request)
+    if not user_id:
+        return web.json_response({"error": "请先登录后再保存工作流"}, status=401)
+
+    manifest_path = portal_apps_dir() / f"{app_id}.json"
+    if not manifest_path.is_file():
+        return web.json_response({"error": "App not found"}, status=404)
+
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        return web.json_response({"error": f"Invalid JSON: {exc}"}, status=400)
+    if not isinstance(payload, dict):
+        return web.json_response({"error": "Body must be a JSON object"}, status=400)
+
+    workflow_json = payload.get("workflow_json", payload)
+    if not isinstance(workflow_json, dict):
+        return web.json_response({"error": "workflow_json must be an object"}, status=400)
+    nodes = workflow_json.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        return web.json_response({"error": "workflow_json.nodes 不能为空"}, status=400)
+
+    target = _user_workflow_file_path(user_id, app_id)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(workflow_json, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as exc:
+        return web.json_response({"error": f"保存失败: {exc}"}, status=500)
+
+    return web.json_response(
+        {
+            "ok": True,
+            "app_id": app_id,
+            "user_id": user_id,
+            "path": str(target),
+            "node_count": len(nodes),
+        }
     )
 
 
