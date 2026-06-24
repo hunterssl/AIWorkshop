@@ -194,6 +194,7 @@
         iframeReadyTimer: null,
         actionBusy: false,
         pendingAction: "",
+        actionTimer: null,
       };
 
       function authHeaders(extra = {}) {
@@ -218,6 +219,27 @@
           setStatus(label, "");
           statusEl.classList.add("show");
         }
+      }
+
+      function clearActionTimer() {
+        if (state.actionTimer) {
+          clearTimeout(state.actionTimer);
+          state.actionTimer = null;
+        }
+      }
+
+      function startActionWatchdog(actionLabel, timeoutMs = 20000) {
+        clearActionTimer();
+        state.actionTimer = setTimeout(() => {
+          if (!state.actionBusy || !state.pendingAction) return;
+          const pending = state.pendingAction;
+          state.pendingAction = "";
+          setActionBusy(false);
+          setStatus(`${actionLabel}超时\n请确认 ComfyUI 已重启并 Ctrl+F5 强刷`, "err");
+          if (pending === "run") {
+            console.warn("[workflow-editor] run action timeout");
+          }
+        }, timeoutMs);
       }
 
       function postToIframe(type, payload = {}) {
@@ -482,9 +504,11 @@
         try {
           setActionBusy(true, "正在提交运行...");
           state.pendingAction = "run";
+          startActionWatchdog("运行");
           postToIframe("RH_RUN_WORKFLOW");
         } catch (error) {
           state.pendingAction = "";
+          clearActionTimer();
           setActionBusy(false);
           setStatus(`运行失败\n${error.message}`, "err");
         }
@@ -495,9 +519,11 @@
         try {
           setActionBusy(true, "正在读取画布并保存...");
           state.pendingAction = "save";
+          startActionWatchdog("保存");
           postToIframe("RH_EXPORT_WORKFLOW");
         } catch (error) {
           state.pendingAction = "";
+          clearActionTimer();
           setActionBusy(false);
           setStatus(`保存失败\n${error.message}`, "err");
         }
@@ -539,6 +565,7 @@
             return;
           }
           if (data.type === "RH_RUN_OK") {
+            clearActionTimer();
             state.pendingAction = "";
             setActionBusy(false);
             const promptId = String(data?.payload?.prompt_id || "").trim();
@@ -550,6 +577,7 @@
             return;
           }
           if (data.type === "RH_RUN_ERROR") {
+            clearActionTimer();
             state.pendingAction = "";
             setActionBusy(false);
             setStatus(`运行失败\n${String(data?.payload?.message || "unknown error")}`, "err");
@@ -560,6 +588,7 @@
             const workflow = data?.payload?.workflow;
             saveWorkflowToUser(workflow)
               .then((result) => {
+                clearActionTimer();
                 state.pendingAction = "";
                 setActionBusy(false);
                 const nodes = Number(result?.node_count || data?.payload?.nodes || 0);
@@ -570,6 +599,7 @@
                 }, 2800);
               })
               .catch((error) => {
+                clearActionTimer();
                 state.pendingAction = "";
                 setActionBusy(false);
                 setStatus(`保存失败\n${error.message}`, "err");
@@ -577,6 +607,7 @@
             return;
           }
           if (data.type === "RH_EXPORT_ERROR") {
+            clearActionTimer();
             state.pendingAction = "";
             setActionBusy(false);
             setStatus(`保存失败\n${String(data?.payload?.message || "unknown error")}`, "err");

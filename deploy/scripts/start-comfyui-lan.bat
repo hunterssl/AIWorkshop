@@ -1,66 +1,64 @@
 @echo off
 chcp 65001 >nul
 setlocal enabledelayedexpansion
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
 
-REM ComfyUI worker LAN mode (port 8188)
+REM ComfyUI worker LAN mode - port 8188
 REM Studio UI runs on gateway port 8080 - see start-lingying-gateway.bat
 
-REM 项目根目录（AIWorkshop）
-set "PROJECT_ROOT=%~dp0..\..\"
-for %%I in ("%PROJECT_ROOT%") do set "PROJECT_ROOT=%%~fI"
-
-REM 通过 Node 读取 config/paths.js 里的 comfyuiRoot
-set "COMFYUI_DIR="
-pushd "%PROJECT_ROOT%" >nul 2>nul
-for /f "usebackq delims=" %%i in (`node -e "const c=require('./config/paths.js');process.stdout.write(String(c.comfyuiRoot||'').trim())" 2^>nul`) do set "COMFYUI_DIR=%%i"
-popd >nul 2>nul
-
-if "%COMFYUI_DIR%"=="" (
-  echo [错误] 未能从 config/paths.js 读取 comfyuiRoot
-  echo [提示] 请检查 config/paths.js 是否存在并导出 comfyuiRoot
-  pause
-  exit /b 1
-)
-
-cd /d "%COMFYUI_DIR%"
+cd /d "%~dp0..\..\.."
 
 if not exist "main.py" (
-  echo [错误] 找不到 main.py，当前目录: %CD%
+  echo [ERROR] main.py not found. Current dir: %CD%
   pause
   exit /b 1
 )
 
+set "PORT=8188"
+set "PY=python"
+if exist "venv\Scripts\python.exe" set "PY=venv\Scripts\python.exe"
+
+echo Stopping old ComfyUI on port %PORT% if any...
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr LISTENING') do (
+  echo   Found PID %%p, stopping...
+  taskkill /PID %%p /F >nul 2>&1
+)
+timeout /t 2 /nobreak >nul
+
+echo Checking Python dependencies (first run may take 1-2 minutes)...
+"%PY%" -m pip install -q pyOpenSSL opencv-python-headless watchdog matplotlib deepdiff scikit-image compel "comfy-aimdo==0.4.10" imageio-ffmpeg -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=120
+if errorlevel 1 (
+  echo [WARN] Some packages failed to install. ComfyUI may still start.
+)
+
+echo.
+echo Starting ComfyUI... first launch can take 3-10 minutes while plugins load.
+echo Do not close this window until you see "Starting server".
+echo.
 echo ========================================
-echo  灵影 - ComfyUI 算力节点（内网 8188）
+echo  Lingying - ComfyUI worker LAN %PORT%
 echo ========================================
 echo.
-echo 本机 IPv4 地址:
+echo Local IPv4 addresses:
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
   set "IP=%%a"
   set "IP=!IP: =!"
-  if not "!IP!"=="" echo   ComfyUI  http://!IP!:8188
+  if not "!IP!"=="" echo   ComfyUI  http://!IP!:%PORT%
 )
 echo.
-echo 工坊页面请另开网关（8080）:
-echo   运行 deploy\scripts\start-lingying-gateway.bat
-echo   然后访问 http://本机IP:8080/rh/studio
+echo Browser: http://127.0.0.1:%PORT%
 echo.
-echo 局域网打不开时，管理员运行 deploy\scripts\windows-firewall-8188.bat
+echo Start gateway on port 8080 separately:
+echo   run deploy\scripts\start-lingying-gateway.bat
+echo   then open http://YOUR_IP:8080/rh/studio
+echo.
+echo To stop ComfyUI only: deploy\scripts\stop-comfyui-lan.bat
+echo If LAN cannot connect, run as admin:
+echo   deploy\scripts\windows-firewall-8188.bat
 echo ========================================
 echo.
 
-set "PY=python"
-REM 优先使用 ComfyUI 的 .ext 环境
-if exist ".ext\python.exe" (
-  set "PY=.ext\python.exe"
-) else if exist ".ext\Scripts\python.exe" (
-  set "PY=.ext\Scripts\python.exe"
-) else if exist "venv\Scripts\python.exe" (
-  set "PY=venv\Scripts\python.exe"
-)
-echo 使用 Python: %PY%
-"%PY%" -c "import sys; print(sys.executable)"
-
-"%PY%" main.py --listen 0.0.0.0 --port 8188 --multi-user --cpu
+"%PY%" main.py --listen 0.0.0.0 --port %PORT% --multi-user --cpu
 
 pause
