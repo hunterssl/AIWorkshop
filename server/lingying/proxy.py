@@ -59,7 +59,6 @@ _LOCAL_RH_API_PREFIXES: tuple[str, ...] = (
     "/rh/api/comfy/status",
     "/rh/api/canvas2/config",
     "/rh/api/publish/cover",
-    "/rh/api/apps",
 )
 
 # ComfyUI 原生画布入口（与 ComfyUI-Portal routes.py 保持一致）
@@ -106,8 +105,26 @@ def _is_comfy_root_asset(path: str) -> bool:
     return bool(name) and any(name.endswith(suffix) for suffix in _ROOT_ASSET_SUFFIXES)
 
 
-def _should_proxy(path: str) -> bool:
+def _is_local_rh_api(path: str, method: str) -> bool:
+    method_upper = (method or "").upper()
     if any(path.startswith(p) for p in _LOCAL_RH_API_PREFIXES):
+        return True
+
+    if path == "/rh/api/apps":
+        return method_upper == "GET"
+
+    if path.startswith("/rh/api/apps/"):
+        tail = path[len("/rh/api/apps/") :]
+        if tail and "/" not in tail:
+            return method_upper == "GET"
+        if tail.count("/") == 1 and tail.endswith("/workflow-file"):
+            return method_upper in {"GET", "PUT"}
+
+    return False
+
+
+def _should_proxy(path: str, method: str) -> bool:
+    if _is_local_rh_api(path, method):
         return False
     if any(path.startswith(p) for p in _COMFY_UI_PREFIXES):
         return True
@@ -159,7 +176,13 @@ def _worker_ws_url(path_qs: str) -> str:
 
 async def _proxy_http(request: web.Request, *, force: bool = False) -> web.Response:
     path = request.path
-    if not force and not _should_proxy(path):
+    if not force and not _should_proxy(path, request.method):
+        logger.warning(
+            "gateway local 404: method=%s path=%s query=%s",
+            request.method,
+            request.path,
+            request.query_string,
+        )
         return web.json_response({"error": "not found"}, status=404)
 
     comfy_user = _resolve_studio_user_from_request(request)
@@ -212,6 +235,7 @@ async def _proxy_websocket(request: web.Request) -> web.WebSocketResponse:
         timeout = aiohttp.ClientTimeout(total=None, sock_connect=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.ws_connect(target, headers=headers) as ws_upstream:
+
                 async def client_to_upstream() -> None:
                     async for msg in ws_client:
                         if msg.type == WSMsgType.TEXT:

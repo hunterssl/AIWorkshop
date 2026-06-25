@@ -99,5 +99,15 @@ echo   deploy\scripts\windows-firewall-8188.bat
 echo ========================================
 echo.
 
-"%PY%" main.py --listen 0.0.0.0 --port %PORT% --multi-user --cpu --enable-cors-header --output-directory %OUTPUT_DIR% --input-directory %INPUT_DIR% --user-directory %USER_DATA_DIR%
+set PYTORCH_CUDA_ALLOC_CONF=backend:cudaMallocAsync
+"%PY%" main.py ^
+ --listen 0.0.0.0^
+ --port %PORT% ^
+ --multi-user ^
+ --enable-cors-header^
+ --output-directory %OUTPUT_DIR%^
+ --input-directory %INPUT_DIR%^
+ --user-directory %USER_DATA_DIR%^
+ --use-sage-attention
+
 pause
