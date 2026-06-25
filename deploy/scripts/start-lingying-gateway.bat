@@ -6,7 +6,21 @@ set "PYTHONIOENCODING=utf-8"
 
 set "PORT=8080"
 
-cd /d "%~dp0..\..\server"
+set "PROJECT_ROOT=%~dp0..\..\"
+for %%I in ("%PROJECT_ROOT%") do set "PROJECT_ROOT=%%~fI"
+
+set "COMFYUI_DIR="
+pushd "%PROJECT_ROOT%" >nul 2>nul
+for /f "usebackq delims=" %%i in (`node -e "const c=require(process.argv[1]);process.stdout.write(String(c.comfyuiRoot||'').trim())" "%PROJECT_ROOT%\config\paths.js" 2^>nul`) do set "COMFYUI_DIR=%%i"
+popd >nul 2>nul
+
+if "%COMFYUI_DIR%"=="" (
+  echo [ERROR] Failed to read comfyuiRoot from config/paths.js
+  pause
+  exit /b 1
+)
+
+cd /d "%PROJECT_ROOT%\server"
 
 if not exist "lingying\app.py" (
   echo [ERROR] Gateway code not found. Current dir: %CD%
@@ -14,8 +28,21 @@ if not exist "lingying\app.py" (
   exit /b 1
 )
 
-set "PY=python"
-if exist "..\..\venv\Scripts\python.exe" set "PY=..\..\venv\Scripts\python.exe"
+set "PY="
+if exist "%COMFYUI_DIR%\.ext\python.exe" (
+  set "PY=%COMFYUI_DIR%\.ext\python.exe"
+) else if exist "%COMFYUI_DIR%\.ext\Scripts\python.exe" (
+  set "PY=%COMFYUI_DIR%\.ext\Scripts\python.exe"
+) else if exist "%COMFYUI_DIR%\venv\Scripts\python.exe" (
+  set "PY=%COMFYUI_DIR%\venv\Scripts\python.exe"
+) else if exist "%PROJECT_ROOT%\venv\Scripts\python.exe" (
+  set "PY=%PROJECT_ROOT%\venv\Scripts\python.exe"
+) else (
+  set "PY=python"
+)
+
+echo Using Python: %PY%
+"%PY%" -c "import sys; print(sys.executable)"
 
 echo Stopping old gateway on port %PORT% if any...
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr LISTENING') do (
