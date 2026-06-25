@@ -21,6 +21,18 @@ if "%COMFYUI_DIR%"=="" (
   exit /b 1
 )
 
+set "USER_DATA_DIR="
+set "INPUT_DIR="
+set "OUTPUT_DIR="
+for /f "usebackq tokens=1,2,3 delims=|" %%a in (`node -e "const fs=require('fs');const path=require('path');const cfgPath=process.argv[1];const base=process.argv[2];let c={};try{c=JSON.parse(fs.readFileSync(cfgPath,'utf8'));}catch{}const user=path.resolve(base,String(c.user_data_dir||'../studio_users/user'));const root=path.dirname(user);const input=c.input_directory?path.resolve(base,String(c.input_directory)):path.join(root,'input');const output=c.output_directory?path.resolve(base,String(c.output_directory)):path.join(root,'output');process.stdout.write([user,input,output].join('|'));" "%PROJECT_ROOT%\server\lingying.server.json" "%PROJECT_ROOT%\server" 2^>nul`) do (
+  set "USER_DATA_DIR=%%a"
+  set "INPUT_DIR=%%b"
+  set "OUTPUT_DIR=%%c"
+)
+if "%USER_DATA_DIR%"=="" set "USER_DATA_DIR=%PROJECT_ROOT%\studio_users\user"
+if "%INPUT_DIR%"=="" set "INPUT_DIR=%PROJECT_ROOT%\studio_users\input"
+if "%OUTPUT_DIR%"=="" set "OUTPUT_DIR=%PROJECT_ROOT%\studio_users\output"
+
 cd /d "%COMFYUI_DIR%"
 
 if not exist "main.py" (
@@ -43,6 +55,9 @@ if exist "%COMFYUI_DIR%\.ext\python.exe" (
 
 echo Using Python: %PY%
 "%PY%" -c "import sys; print(sys.executable)"
+echo user_data_dir: %USER_DATA_DIR%
+echo input_directory: %INPUT_DIR%
+echo output_directory: %OUTPUT_DIR%
 
 echo Stopping old ComfyUI on port %PORT% if any...
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr LISTENING') do (
@@ -84,6 +99,5 @@ echo   deploy\scripts\windows-firewall-8188.bat
 echo ========================================
 echo.
 
-"%PY%" main.py --listen 0.0.0.0 --port %PORT% --multi-user --cpu
-
+"%PY%" main.py --listen 0.0.0.0 --port %PORT% --multi-user --cpu --enable-cors-header --output-directory %OUTPUT_DIR% --input-directory %INPUT_DIR% --user-directory %USER_DATA_DIR%
 pause

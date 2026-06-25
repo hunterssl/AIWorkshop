@@ -20,6 +20,10 @@ if "%COMFYUI_DIR%"=="" (
   exit /b 1
 )
 
+set "USER_DATA_DIR="
+for /f "usebackq delims=" %%i in (`node -e "const path=require('path');const c=require(process.argv[1]);process.stdout.write(path.resolve(process.argv[2], String(c.user_data_dir||'../../user')));" "%PROJECT_ROOT%\server\lingying.server.json" "%PROJECT_ROOT%\server" 2^>nul`) do set "USER_DATA_DIR=%%i"
+if "%USER_DATA_DIR%"=="" set "USER_DATA_DIR=%PROJECT_ROOT%\studio_users\user"
+
 cd /d "%PROJECT_ROOT%\server"
 
 if not exist "lingying\app.py" (
@@ -43,6 +47,7 @@ if exist "%COMFYUI_DIR%\.ext\python.exe" (
 
 echo Using Python: %PY%
 "%PY%" -c "import sys; print(sys.executable)"
+echo user_data_dir: %USER_DATA_DIR%
 
 echo Stopping old gateway on port %PORT% if any...
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr LISTENING') do (

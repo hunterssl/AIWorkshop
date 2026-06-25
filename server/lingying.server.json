@@ -3,5 +3,7 @@
   "port": 8080,
   "studio_ui_dir": "../",
   "comfy_worker_url": "http://127.0.0.1:8188",
-  "user_data_dir": "../../user"
+  "user_data_dir": "../studio_users/user",
+  "input_directory": "../studio_users/input",
+  "output_directory": "../studio_users/output"
 }

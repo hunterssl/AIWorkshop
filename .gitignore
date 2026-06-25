@@ -1,7 +1,9 @@
 # 构建产物
 studio/dist/
 canvas/dist/
-.pyc
+*.pyc
+*.pyo
+*.pyd
 
 # 依赖
 node_modules/
