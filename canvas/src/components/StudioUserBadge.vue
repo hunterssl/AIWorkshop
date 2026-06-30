@@ -13,12 +13,8 @@
       </svg>
       <span>{{ badgeLabel }}</span>
     </button>
-    <div v-if="menuAvailable" class="rh-user-badge__dropdown" :class="{ 'is-hidden': !dropdownOpen }" role="menu">
-      <button type="button" class="rh-user-badge__dropdown-item" role="menuitem" @click="openApiSettings">
-        API 设置
-      </button>
+    <div v-if="multiUserEnabled && authed" class="rh-user-badge__dropdown" :class="{ 'is-hidden': !dropdownOpen }" role="menu">
       <button
-        v-if="multiUserEnabled && authed"
         type="button"
         class="rh-user-badge__dropdown-item"
         role="menuitem"
@@ -92,7 +88,7 @@ const loggingIn = ref(false)
 
 const displayName = computed(() => usersMap.value[userId.value] || userId.value || 'default')
 
-const menuAvailable = computed(() => !multiUserEnabled.value || authed.value)
+const menuAvailable = computed(() => multiUserEnabled.value && authed.value)
 
 const badgeLabel = computed(() => {
   if (!multiUserEnabled.value) return '默认用户'
@@ -148,7 +144,7 @@ async function loadUsers() {
 
 function handleBadgeClick() {
   if (!multiUserEnabled.value) {
-    dropdownOpen.value = !dropdownOpen.value
+    // 非多用户模式：无菜单项，点击不做任何
     return
   }
   if (authed.value) {
@@ -160,10 +156,6 @@ function handleBadgeClick() {
   showLoginModal.value = true
 }
 
-function openApiSettings() {
-  dropdownOpen.value = false
-  window.RhApiSettings?.open?.()
-}
 
 async function submitLogin() {
   const id = resolveUserId(loginUsername.value)
@@ -245,13 +237,11 @@ onMounted(async () => {
   document.addEventListener('click', onDocumentClick)
   window.addEventListener('rh-studio-auth-change', onAuthChange)
   window.addEventListener('storage', onAuthChange)
-  window.addEventListener('rh-open-api-settings', onOpenApiSettings)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
   window.removeEventListener('rh-studio-auth-change', onAuthChange)
   window.removeEventListener('storage', onAuthChange)
-  window.removeEventListener('rh-open-api-settings', onOpenApiSettings)
 })
 </script>

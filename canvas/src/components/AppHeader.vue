@@ -13,8 +13,6 @@
       <!-- Center slot | 中间插槽 -->
       <slot name="center"></slot>
 
-      <StudioUserBadge />
-
       <!-- Theme toggle | 主题切换 -->
       <button
         type="button"
@@ -29,7 +27,20 @@
         </n-icon>
       </button>
 
-      <!-- Right slot | 右侧插槽 -->
+      <!-- Home button | 回到首页 -->
+      <a
+        href="/rh/studio"
+        class="rh-header-icon-btn"
+        title="回到首页"
+        aria-label="回到首页"
+        style="display:flex;align-items:center;justify-content:center;text-decoration:none;"
+      >
+        <n-icon :size="20"><HomeOutline /></n-icon>
+      </a>
+
+      <StudioUserBadge />
+
+      <!-- Right slot | 右侧插槽（画布内：批量下载）-->
       <slot name="right"></slot>
     </div>
   </header>
@@ -40,7 +51,7 @@
  * App Header component | 应用头部组件
  */
 import { NIcon } from 'naive-ui'
-import { SunnyOutline, MoonOutline } from '@vicons/ionicons5'
+import { SunnyOutline, MoonOutline, HomeOutline } from '@vicons/ionicons5'
 import { isDark, toggleTheme } from '../stores/theme'
 import StudioUserBadge from './StudioUserBadge.vue'
 </script>

@@ -17,12 +17,12 @@
           </button>
         </n-dropdown>
       </template>
-      <template #right>
+      <template #center>
+        <!-- 批量下载素材（最左边） -->
         <button 
           type="button"
           @click="showDownloadModal = true"
           class="rh-header-icon-btn"
-          :class="{ 'is-active': hasDownloadableAssets }"
           title="批量下载素材"
           aria-label="批量下载素材"
         >
