@@ -1,4 +1,5 @@
 {
+  "_comment": "灵影网关配置。所有路径相对于 server/ 目录解析，一般无需修改。仅 comfy_worker_url 需根据 ComfyUI 端口调整。",
   "host": "0.0.0.0",
   "port": 8080,
   "studio_ui_dir": "../",

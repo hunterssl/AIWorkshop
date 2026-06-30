@@ -1,3 +1,4 @@
 {
-  "base_path": "E:/xiazai/虚拟人像库(1)/虚拟人像库"
+  "_comment": "虚拟人像库路径。相对路径会基于 AIWorkshop 目录解析。迁移时一般不需修改。",
+  "base_path": "虚拟人像库"
 }

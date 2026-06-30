@@ -127,6 +127,8 @@
   let currentConversationId = "";
   let studioUserId = "default";
   let studioMultiUserEnabled = false;
+  /** 服务器支持多用户但尚未创建任何账号时为 true，用于允许首次注册 */
+  let studioIsFirstSetup = false;
   /** @type {Set<string>} */
   let ownedPromptIds = new Set();
 
@@ -971,12 +973,15 @@
   function syncAuthBadgeUi({ labelEl, btnEl, dropdownEl, logoutBtnEl }) {
     if (!labelEl || !btnEl) return;
     const authed = isStudioUserAuthed();
-    const menuAvailable = !studioMultiUserEnabled || authed;
+    // studioIsFirstSetup：服务器有用户系统但尚无用户，需要引导注册
+    const requiresAuth = studioMultiUserEnabled || studioIsFirstSetup;
+    const menuAvailable = !requiresAuth || authed;
     const name = getStudioUserDisplayName();
-    if (!studioMultiUserEnabled) labelEl.textContent = "默认用户";
+    if (studioIsFirstSetup) labelEl.textContent = "注册 / 登录";
+    else if (!studioMultiUserEnabled) labelEl.textContent = "默认用户";
     else if (authed) labelEl.textContent = name;
     else labelEl.textContent = "登录";
-    btnEl.classList.toggle("is-logged-in", authed || !studioMultiUserEnabled);
+    btnEl.classList.toggle("is-logged-in", authed || (!requiresAuth));
     btnEl.setAttribute("aria-haspopup", menuAvailable ? "menu" : "dialog");
     btnEl.setAttribute("aria-controls", menuAvailable ? (dropdownEl?.id || "") : "studioLoginModal");
     if (!authed) btnEl.setAttribute("aria-expanded", "false");
@@ -1126,11 +1131,15 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: id, password: pwd }),
       });
+      // 重要：必须先写入 token，再调用 switchStudioUser。
+      // switchStudioUser 会触发 reloadUserScopedState → refreshQueueFromServer，
+      // 如果 token 尚未写入 sessionStorage，请求会因没有认证而触发 handleStudioSessionExpired，
+      // 清除刚写入的登录态并再次弹出登录框。
+      setStudioSessionToken(data?.session_token || "");
+      markStudioUserAuthed(id);
       if (id !== studioUserId) {
         await switchStudioUser(id);
       }
-      setStudioSessionToken(data?.session_token || "");
-      markStudioUserAuthed(id);
       const remember = isStudioLoginRememberRequested();
       window.RhStudioAuth?.applyRememberLogin?.({
         remember,
@@ -1209,6 +1218,7 @@
       if (!id) throw new Error("创建用户失败");
       studioUsersMap[id] = name;
       studioMultiUserEnabled = true;
+      studioIsFirstSetup = false;
       await switchStudioUser(id);
       setStudioSessionToken(data?.session_token || "");
       markStudioUserAuthed(id);
@@ -1235,24 +1245,36 @@
       const data = await requestJson("/users");
       if (data?.users && typeof data.users === "object" && Object.keys(data.users).length) {
         studioMultiUserEnabled = true;
+        studioIsFirstSetup = false;
         studioUsersMap = data.users;
         if (!studioUsersMap[studioUserId]) {
           studioUserId = Object.keys(studioUsersMap)[0] || "default";
           localStorage.setItem(STUDIO_USER_STORAGE_KEY, studioUserId);
         }
       } else {
+        // 服务器有用户系统但尚无账号（首次部署），允许注册
         studioMultiUserEnabled = false;
+        studioIsFirstSetup = true;
         studioUserId = "default";
       }
     } catch {
       studioMultiUserEnabled = false;
+      studioIsFirstSetup = false;
       studioUserId = "default";
     }
     ownedPromptIds = loadOwnedPromptIds();
     syncComfyUserIdentity(studioUserId, getStudioUserDisplayName());
     syncStudioLoginRememberUi();
-    updateStudioUserUi();
+    // 注意：故意不在此处调用 updateStudioUserUi()。
+    // 必须等待 validateStudioSessionOnInit() 完成后再更新 UI，
+    // 否则 sessionStorage 中的旧 token 会导致用户名一闪后立刻弹登录框。
     const sessionValid = await validateStudioSessionOnInit();
+    // session 验证结束后统一更新一次 UI：
+    // - sessionValid=true：validateStudioSessionOnInit 内部不更新 UI，需要在此处更新
+    // - sessionValid=false 且 studioMultiUserEnabled：handleStudioSessionExpired 已更新，但再调一次无害
+    // - sessionValid=false 且 !studioMultiUserEnabled（含 studioIsFirstSetup）：validateStudioSessionOnInit
+    //   直接返回 true 跳过此 else 分支，但我们改为无条件更新以覆盖 firstSetup 初始化状态
+    updateStudioUserUi();
     if (!sessionValid) {
       await tryAutoLoginWithSavedCredentials();
     }
@@ -1270,11 +1292,12 @@
     if (btnHomeLogin) {
       btnHomeLogin.addEventListener("click", (event) => {
         event.stopPropagation();
-        if (!studioMultiUserEnabled) {
+        // 纯默认用户模式（非首次建账）：直接展开菜单
+        if (!studioMultiUserEnabled && !studioIsFirstSetup) {
           toggleHomeAuthDropdown();
           return;
         }
-        if (isStudioUserAuthed()) toggleHomeAuthDropdown();
+        if (!studioIsFirstSetup && isStudioUserAuthed()) toggleHomeAuthDropdown();
         else openStudioLoginModal();
       });
     }
@@ -1293,11 +1316,12 @@
     if (btnChatLogin) {
       btnChatLogin.addEventListener("click", (event) => {
         event.stopPropagation();
-        if (!studioMultiUserEnabled) {
+        // 纯默认用户模式（非首次建账）：直接展开菜单
+        if (!studioMultiUserEnabled && !studioIsFirstSetup) {
           toggleChatAuthDropdown();
           return;
         }
-        if (isStudioUserAuthed()) toggleChatAuthDropdown();
+        if (!studioIsFirstSetup && isStudioUserAuthed()) toggleChatAuthDropdown();
         else openStudioLoginModal();
       });
     }
@@ -2259,7 +2283,10 @@
     if (studioMultiUserEnabled && !isStudioUserAuthed()) return;
     queueRefreshInFlight = true;
     try {
-      const data = await requestJson("/rh/api/jobs?limit=50&max_items=120");
+      // skipAuthRecovery: true — 后台轮询遇到 401 (session 过期) 时只静默失败，
+      // 不调用 handleStudioSessionExpired，避免每 3 秒弹一次登录框。
+      // 真正的 session 失效提示应在用户主动发起操作时触发。
+      const data = await requestJson("/rh/api/jobs?limit=50&max_items=120", { skipAuthRecovery: true });
       applyServerJobs(Array.isArray(data?.jobs) ? data.jobs : []);
     } catch {
       // Ignore queue refresh errors to avoid spamming user.
