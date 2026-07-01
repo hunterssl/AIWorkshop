@@ -1,0 +1,307 @@
+{
+  "id": "6999c2db-ddb1-481f-a3dc-737151d6e7f2",
+  "revision": 0,
+  "last_node_id": 16,
+  "last_link_id": 17,
+  "nodes": [
+    {
+      "id": 12,
+      "type": "JimengAPIClient",
+      "pos": [
+        136.326442253724,
+        203.3470068613645
+      ],
+      "size": [
+        270,
+        114
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "client",
+          "type": "JIMENG_CLIENT",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-Jimeng-API",
+        "ver": "92ab2ef61fe4d90508c5fbfbbeeaadb355c60d26",
+        "Node name for S&R": "JimengAPIClient",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        },
+        "aux_id": "fkxianzhou/ComfyUI-Jimeng-API"
+      },
+      "widgets_values": [
+        "ark-8f50a091-7f5d-4112-8410-4c7dae4c6fdb-f1deb",
+        "SSL-Temp",
+        "Custom"
+      ]
+    },
+    {
+      "id": 13,
+      "type": "LoadImage",
+      "pos": [
+        131.04337865251668,
+        410.83649622896365
+      ],
+      "size": [
+        270,
+        314.00000000000006
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            15
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.22.3",
+        "Node name for S&R": "LoadImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "1girl.png",
+        "image"
+      ]
+    },
+    {
+      "id": 16,
+      "type": "JimengSeedream4",
+      "pos": [
+        583.6477556729552,
+        216.823187239194
+      ],
+      "size": [
+        400,
+        324
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "client",
+          "type": "JIMENG_CLIENT",
+          "link": 14
+        },
+        {
+          "label": "图像 1",
+          "name": "images.image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 15
+        },
+        {
+          "label": "图像 2",
+          "name": "images.image_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            16
+          ]
+        },
+        {
+          "name": "response",
+          "type": "STRING",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-Jimeng-API",
+        "ver": "92ab2ef61fe4d90508c5fbfbbeeaadb355c60d26",
+        "Node name for S&R": "JimengSeedream4",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        },
+        "aux_id": "fkxianzhou/ComfyUI-Jimeng-API"
+      },
+      "widgets_values": [
+        "doubao-seedream-4.0",
+        "将图中美女改成面对镜头微笑",
+        "2K (adaptive)",
+        2048,
+        2048,
+        1228979511,
+        "randomize",
+        false,
+        1,
+        1,
+        false
+      ]
+    },
+    {
+      "id": 14,
+      "type": "SaveImage",
+      "pos": [
+        1172.4499511345284,
+        108.11662644007029
+      ],
+      "size": [
+        270,
+        270
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.22.3",
+        "Node name for S&R": "SaveImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "ComfyUI"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "ShowText|pysssss",
+      "pos": [
+        1172.3657708247013,
+        488.48408963524
+      ],
+      "size": [
+        308.0877925049024,
+        230.70772075956017
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 17
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "ShowText|pysssss",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "[\n  {\n    \"batch_index\": 0,\n    \"created\": 1781174950,\n    \"usage\": {\n      \"generated_images\": 1,\n      \"output_tokens\": 16384,\n      \"total_tokens\": 16384\n    },\n    \"images\": [\n      {\n        \"index\": 1,\n        \"size\": \"2048x2048\",\n        \"source\": \"b64_json\"\n      }\n    ],\n    \"model\": \"doubao-seedream-4-0-250828\"\n  }\n]"
+      ]
+    }
+  ],
+  "links": [
+    [
+      14,
+      12,
+      0,
+      16,
+      0,
+      "JIMENG_CLIENT"
+    ],
+    [
+      15,
+      13,
+      0,
+      16,
+      1,
+      "IMAGE"
+    ],
+    [
+      16,
+      16,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      16,
+      1,
+      15,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.9646149645000006,
+      "offset": [
+        65.04538475115514,
+        93.15149161885228
+      ]
+    },
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "frontendVersion": "1.45.19",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

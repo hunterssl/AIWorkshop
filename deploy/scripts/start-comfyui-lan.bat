@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 
-REM ComfyUI worker LAN mode - port 8188
+REM ComfyUI worker LAN mode - port 8189
 REM Studio UI runs on gateway port 8080 - see start-lingying-gateway.bat
 
 set "PROJECT_ROOT=%~dp0..\..\"
@@ -41,7 +41,7 @@ if not exist "main.py" (
   exit /b 1
 )
 
-set "PORT=8188"
+set "PORT=8189"
 set "PY="
 if exist "%COMFYUI_DIR%\.ext\python.exe" (
   set "PY=%COMFYUI_DIR%\.ext\python.exe"

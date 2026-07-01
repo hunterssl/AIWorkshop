@@ -78,6 +78,9 @@
     #btnReloadFrame {
       background: linear-gradient(135deg, #ea580c, #f97316);
     }
+    #btnPublish {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+    }
     /* 分隔线 */
     .actions-sep {
       width: 1px;
@@ -199,6 +202,7 @@
       <button id="btnSave" type="button" disabled>保存</button>
       <button id="btnRetry" type="button">重试导入</button>
       <button id="btnReloadFrame" type="button">重载画布</button>
+      <button id="btnPublish" type="button">发布</button>
       <div class="actions-sep"></div>
       <!-- 主题切换 -->
       <button id="btnEditorTheme" type="button" class="icon-btn" data-rh-theme-toggle title="切换亮色/暗色" aria-label="切换主题">
@@ -236,7 +240,7 @@
       const metaEl = document.getElementById("meta");
       const btnRetry = document.getElementById("btnRetry");
       const btnReloadFrame = document.getElementById("btnReloadFrame");
-      const btnBack = document.getElementById("btnBack");
+      const btnPublish = document.getElementById("btnPublish");
       const btnRun = document.getElementById("btnRun");
       const btnSave = document.getElementById("btnSave");
 
@@ -708,6 +712,25 @@
           primeComfyUserBeforeIframe();
           frame.src = "/?rh_iframe_editor=1";
           startIframeReadyWatchdog();
+        });
+        btnPublish.addEventListener("click", async () => {
+          if (!state.iframeReady) {
+            setStatus("请等待画布就绪后再发布", "err");
+            return;
+          }
+          try {
+            const iframeWin = frame.contentWindow;
+            const publisher =
+              iframeWin?.__rhPortalEnsurePublisher?.() ||
+              iframeWin?.__rhPortalPublisherInstance;
+            if (!publisher) {
+              setStatus("发布插件未就绪，请稍后重试", "err");
+              return;
+            }
+            await publisher.handlePublishClick();
+          } catch (error) {
+            setStatus(`发布失败\n${error.message}`, "err");
+          }
         });
         // 初始化编辑器头部用户显示
         (function initEditorUser() {

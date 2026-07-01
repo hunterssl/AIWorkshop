@@ -1849,6 +1849,10 @@
       t2v: "文生视频",
       i2i: "图生图",
       i2v: "图生视频",
+      tagger: "反推提示词",
+      "3d": "3D",
+      external_api: "外部API节点",
+      other: "其他",
     };
     return map[mode] || mode;
   }
